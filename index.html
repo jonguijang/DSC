@@ -1161,7 +1161,8 @@
       }
 
       renderCheckFormHtml() {
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const canProxyRegister = ROLE_LEVEL[currentRole] >= 3;
         const selfName = sanitizeMemberName((currentUserProfile && currentUserProfile.name) || '성도');
         return `
@@ -1169,26 +1170,21 @@
             <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="font-bold text-navy dark:text-gold text-xs">✅ 화요·금요·안식일 모바일 출석체크</span>
               <span class="text-[11px] text-gray-500 dark:text-slate-400">
-                ${canProxyRegister ? '직원+ 권한: 타 성도 대리 출석 등록 지원' : '본인 출석 체크 (Attendance_Log 연동)'}
+                ${canProxyRegister ? '직원+ 권한: 성명 기준 소속반 자동매칭·대리 출석 지원' : '성명 기준 소속반 자동매칭 (Attendance_Log 연동)'}
               </span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <div>
                 <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">예배일자</label>
-                <input type="date" name="예배일자" value="${todayStr}" required class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+                <input id="att-date-input" type="date" name="예배일자" value="${todayStr}" required
+                  onchange="syncWorshipTypeByDate(this.value)"
+                  class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
               </div>
               <div>
-                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">예배구분</label>
-                <select name="예배구분(화/금/안)" required class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
-                  <option value="안식일예배">안식일예배 (토 10:00)</option>
-                  <option value="화요예배">화요예배 (화 19:30)</option>
-                  <option value="금요저녁예배">금요저녁예배 (금 19:30)</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">소속반 (SmallGroup_Master)</label>
-                <select name="소속반" class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
-                  ${renderGroupOptionsHtml()}
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">예배구분 (요일 자동선택 · 특별집회 가능)</label>
+                <select id="att-service-select" name="예배구분(화/금/안)" required
+                  class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                  ${renderWorshipOptionsHtml(todayStr)}
                 </select>
               </div>
               <div>
@@ -1203,9 +1199,9 @@
               <div class="p-3 rounded-lg bg-amber-50/90 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label class="block text-[11px] font-bold text-amber-900 dark:text-gold mb-1">
-                    👵 대리 등록 대상 성명 (노약자·미이용 성도용)
+                    👵 대리 등록 대상 성명 (입력 시 소속반 자동매칭)
                   </label>
-                  <input type="text" name="대상성명" placeholder="비워두면 본인(${selfName})으로 등록"
+                  <input id="att-proxy-name" type="text" name="대상성명" placeholder="비워두면 본인(${selfName})으로 등록"
                     class="w-full px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-xs" />
                 </div>
                 <div>
@@ -1403,6 +1399,214 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
       }
     }
 
+    function getDefaultWorshipByDate(dateStr) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
+      if (!match) return '특별집회';
+      const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      const day = d.getDay();
+      if (day === 2) return '화요예배';
+      if (day === 5) return '금요저녁예배';
+      if (day === 6) return '안식일예배';
+      return '특별집회';
+    }
+
+    function renderWorshipOptionsHtml(dateStr, selectedVal = '') {
+      const defaultVal = selectedVal || getDefaultWorshipByDate(dateStr);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
+      const day = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getDay() : -1;
+
+      const options = [];
+      if (day === 2) {
+        options.push({ value: '화요예배', label: '화요예배 (기본 · 화 19:30)' });
+        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
+        options.push({ value: '금요저녁예배', label: '금요저녁예배 (금 19:30)' });
+        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
+      } else if (day === 5) {
+        options.push({ value: '금요저녁예배', label: '금요예배 (기본 · 금 19:30)' });
+        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
+        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
+        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
+      } else if (day === 6) {
+        options.push({ value: '안식일예배', label: '안식일예배 (기본 · 토 10:00)' });
+        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
+        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
+        options.push({ value: '금요저녁예배', label: '금요저녁예배 (금 19:30)' });
+      } else {
+        options.push({ value: '특별집회', label: '특별집회 (기본 · 전 요일 선택가능)' });
+        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
+        options.push({ value: '금요저녁예배', label: '금요예배 (금 19:30)' });
+        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
+      }
+
+      return options.map(o => `<option value="${o.value}"${o.value === defaultVal ? ' selected' : ''}>${o.label}</option>`).join('');
+    }
+
+    function syncWorshipTypeByDate(dateStr) {
+      const sel = document.getElementById('att-service-select');
+      if (!sel) return;
+      sel.innerHTML = renderWorshipOptionsHtml(dateStr);
+    }
+
+    let cachedMasterMembers = [];
+    async function resolveGroupByMemberName(memberName, explicitUserId = '') {
+      const cleanName = String(memberName || '').trim();
+      const cleanId = String(explicitUserId || '').trim();
+
+      if (currentUserProfile) {
+        const selfNames = [String(currentUserProfile.name || '').trim()];
+        const selfIds = [String(currentUserProfile.userId || '').trim(), String(currentUserProfile.email || '').trim()].filter(Boolean);
+        if ((cleanName && selfNames.includes(cleanName)) || (cleanId && selfIds.includes(cleanId))) {
+          const g = String(currentUserProfile.groupName || currentUserProfile['소속반'] || currentUserProfile.groupNo || '').trim();
+          if (g && g !== '미배정') return { groupName: g, userId: cleanId || String(currentUserProfile.userId || '').trim() };
+        }
+      }
+
+      if (!cachedMasterMembers.length && currentIdToken && ROLE_LEVEL[currentRole] >= 4) {
+        try {
+          const res = await callApi('querySheet', { sheetName: 'Users_Master' });
+          if (res && res.ok && Array.isArray(res.rows)) {
+            cachedMasterMembers = res.rows;
+          }
+        } catch (err) {
+          console.warn('Users_Master 자동매칭 조회 스킵:', err);
+        }
+      }
+
+      if (cachedMasterMembers.length) {
+        const found = cachedMasterMembers.find(u => {
+          const uName = String(u['성명'] || u['이름'] || '').trim();
+          const uId = String(u['User_ID'] || '').trim();
+          return (cleanId && uId && uId === cleanId) || (cleanName && uName && uName === cleanName);
+        });
+        if (found) {
+          const gCol = Object.keys(found).find(k => k.includes('소속반'));
+          const matchedGroup = gCol ? String(found[gCol] || '').trim() : '';
+          const matchedId = cleanId || String(found['User_ID'] || '').trim();
+          if (matchedGroup) return { groupName: matchedGroup, userId: matchedId };
+        }
+      }
+
+      try {
+        const attRes = await callApi('querySheet', { sheetName: 'Attendance_Log' });
+        if (attRes && attRes.ok && Array.isArray(attRes.rows) && cleanName) {
+          const prev = attRes.rows.find(r => String(r['성명'] || r['이름'] || '').trim() === cleanName && String(r['소속반'] || r['소그룹반'] || '').trim());
+          if (prev) {
+            const g = String(prev['소속반'] || prev['소그룹반'] || '').trim();
+            const uid = cleanId || String(prev['User_ID'] || '').trim();
+            return { groupName: g, userId: uid };
+          }
+        }
+      } catch (err) {
+        console.warn('Attendance_Log 과거 반명 매칭 스킵:', err);
+      }
+
+      return { groupName: getUserDefaultGroup(getSmallGroupNames()), userId: cleanId };
+    }
+
+    function getDefaultWorshipByDate(dateStr) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
+      if (!match) return '특별집회';
+      const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      const day = d.getDay();
+      if (day === 2) return '화요예배';
+      if (day === 5) return '금요저녁예배';
+      if (day === 6) return '안식일예배';
+      return '특별집회';
+    }
+
+    function renderWorshipOptionsHtml(dateStr, selectedVal = '') {
+      const defaultVal = selectedVal || getDefaultWorshipByDate(dateStr);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
+      const day = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getDay() : -1;
+
+      const options = [];
+      if (day === 2) {
+        options.push({ value: '화요예배', label: '화요예배 (기본 · 화 19:30)' });
+        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
+        options.push({ value: '금요저녁예배', label: '금요예배 (금 19:30)' });
+        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
+      } else if (day === 5) {
+        options.push({ value: '금요저녁예배', label: '금요예배 (기본 · 금 19:30)' });
+        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
+        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
+        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
+      } else if (day === 6) {
+        options.push({ value: '안식일예배', label: '안식일예배 (기본 · 토 10:00)' });
+        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
+        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
+        options.push({ value: '금요저녁예배', label: '금요예배 (금 19:30)' });
+      } else {
+        options.push({ value: '특별집회', label: '특별집회 (기본 · 전 요일 선택가능)' });
+        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
+        options.push({ value: '금요저녁예배', label: '금요예배 (금 19:30)' });
+        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
+      }
+
+      return options.map(o => `<option value="${o.value}"${o.value === defaultVal ? ' selected' : ''}>${o.label}</option>`).join('');
+    }
+
+    function syncWorshipTypeByDate(dateStr) {
+      const sel = document.getElementById('att-service-select');
+      if (!sel) return;
+      sel.innerHTML = renderWorshipOptionsHtml(dateStr);
+    }
+
+    let cachedMasterMembers = [];
+    async function resolveGroupByMemberName(memberName, explicitUserId = '') {
+      const cleanName = String(memberName || '').trim();
+      const cleanId = String(explicitUserId || '').trim();
+
+      if (currentUserProfile) {
+        const selfNames = [String(currentUserProfile.name || '').trim()];
+        const selfIds = [String(currentUserProfile.userId || '').trim(), String(currentUserProfile.email || '').trim()].filter(Boolean);
+        if ((cleanName && selfNames.includes(cleanName)) || (cleanId && selfIds.includes(cleanId))) {
+          const g = String(currentUserProfile.groupName || currentUserProfile['소속반'] || currentUserProfile.groupNo || '').trim();
+          if (g && g !== '미배정') return { groupName: g, userId: cleanId || String(currentUserProfile.userId || '').trim() };
+        }
+      }
+
+      if (!cachedMasterMembers.length && currentIdToken && ROLE_LEVEL[currentRole] >= 4) {
+        try {
+          const res = await callApi('querySheet', { sheetName: 'Users_Master' });
+          if (res && res.ok && Array.isArray(res.rows)) {
+            cachedMasterMembers = res.rows;
+          }
+        } catch (err) {
+          console.warn('Users_Master 자동매칭 조회 스킵:', err);
+        }
+      }
+
+      if (cachedMasterMembers.length) {
+        const found = cachedMasterMembers.find(u => {
+          const uName = String(u['성명'] || u['이름'] || '').trim();
+          const uId = String(u['User_ID'] || '').trim();
+          return (cleanId && uId && uId === cleanId) || (cleanName && uName && uName === cleanName);
+        });
+        if (found) {
+          const gCol = Object.keys(found).find(k => k.includes('소속반'));
+          const matchedGroup = gCol ? String(found[gCol] || '').trim() : '';
+          const matchedId = cleanId || String(found['User_ID'] || '').trim();
+          if (matchedGroup) return { groupName: matchedGroup, userId: matchedId };
+        }
+      }
+
+      try {
+        const attRes = await callApi('querySheet', { sheetName: 'Attendance_Log' });
+        if (attRes && attRes.ok && Array.isArray(attRes.rows) && cleanName) {
+          const prev = attRes.rows.find(r => String(r['성명'] || r['이름'] || '').trim() === cleanName && String(r['소속반'] || r['소그룹반'] || '').trim());
+          if (prev) {
+            const g = String(prev['소속반'] || prev['소그룹반'] || '').trim();
+            const uid = cleanId || String(prev['User_ID'] || '').trim();
+            return { groupName: g, userId: uid };
+          }
+        }
+      } catch (err) {
+        console.warn('Attendance_Log 과거 반명 매칭 스킵:', err);
+      }
+
+      return { groupName: getUserDefaultGroup(getSmallGroupNames()), userId: cleanId };
+    }
+
     function validateAttendanceDateAndService(dateStr, serviceName) {
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
       if (!match) {
@@ -1428,6 +1632,10 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
           hardBlock: false,
           message: `선택한 예배일자(${dateStr})가 오늘(${todayMidnight.toISOString().slice(0, 10)}) 이후 미래 날짜입니다. 계속 등록하시겠습니까?`
         };
+      }
+
+      if (serviceName === '특별집회') {
+        return { valid: true, hardBlock: false, message: '' };
       }
 
       const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
@@ -1461,7 +1669,7 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
       const fd = new FormData(e.target);
       const formData = Object.fromEntries(fd.entries());
       const serviceDate = formData['예배일자'] || new Date().toISOString().slice(0, 10);
-      const serviceType = formData['예배구분(화/금/안)'] || '안식일예배';
+      const serviceType = formData['예배구분(화/금/안)'] || getDefaultWorshipByDate(serviceDate);
 
       const check = validateAttendanceDateAndService(serviceDate, serviceType);
       if (!check.valid) {
@@ -1482,7 +1690,9 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
       const proxyTargetUserId = canProxyRegister ? String(formData['대상User_ID'] || '').trim() : '';
 
       const targetMemberName = proxyTargetName || actorName;
-      const targetUserId = proxyTargetName ? proxyTargetUserId : actorUserId;
+      const matched = await resolveGroupByMemberName(targetMemberName, proxyTargetName ? proxyTargetUserId : actorUserId);
+      const targetUserId = proxyTargetName ? (proxyTargetUserId || matched.userId) : (actorUserId || matched.userId);
+      const matchedGroup = matched.groupName || '';
       const recordId = 'ATT-' + Date.now();
 
       const record = {
@@ -1494,15 +1704,17 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
         User_ID: targetUserId,
         userId: targetUserId,
         '성명': targetMemberName,
-        '소속반': formData['소속반'] || '',
-        '소그룹반': formData['소속반'] || '',
+        '소속반': matchedGroup,
+        '소그룹반': matchedGroup,
         '출석상태': formData['출석상태'] || '출석',
         '입력자': actorName
       };
 
       const res = await callApi('insertRow', { sheetName: 'Attendance_Log', record });
       if (res && res.ok) {
-        alert(proxyTargetName ? `✅ ${targetMemberName}님 대리 출석이 정상 등록되었습니다. (입력자: ${actorName})` : '✅ 출석이 정상 등록되었습니다.');
+        alert(proxyTargetName
+          ? `✅ ${targetMemberName}님(${matchedGroup || '자동매칭'}) 대리 출석이 정상 등록되었습니다. (입력자: ${actorName})`
+          : `✅ ${targetMemberName}님(${matchedGroup || '자동매칭'}) 출석이 정상 등록되었습니다.`);
         await openSheetServiceModal(SERVICES.find(s => s.title === '출석현황 (화/금/안)'));
       } else {
         alert('등록 오류: ' + ((res && res.error) || '권한 또는 입력값을 확인해 주세요.'));
