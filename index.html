@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>제칠일안식일예수재림교 다산교회 | dsc.or.kr</title>
+  <title>제칠일안식일예수재림교 다산교회 | dsc.or.kr (v3.0)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -38,29 +38,29 @@
   <!-- 1. 상단 예배 라이브 & 실시간 카운트다운 바 -->
   <div class="bg-navyDark dark:bg-black text-white text-xs sm:text-sm py-2 px-4 border-b border-white/10">
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-      <div class="flex items-center gap-2">
-        <span class="inline-block w-2 h-2 rounded-full bg-gold animate-pulse"></span>
-        <span id="next-worship-label" class="font-medium text-gray-200">다음 예배 계산 중...</span>
-        <span id="worship-countdown" class="font-bold text-gold tracking-wider">00일 00:00:00</span>
-        <span id="api-status-dot" title="백엔드 API 연결 상태" class="ml-1.5 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-gray-300">
-          ⏳ API 연결중
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <a href="https://www.youtube.com/@sda5239" target="_blank" class="inline-flex items-center gap-1.5 font-semibold text-goldLight hover:text-gold transition">
+          <span>📺 온라인예배 (@sda5239)</span>
+        </a>
+        <span class="text-white/30">|</span>
+        <span id="next-worship-label" class="text-gray-200">다음 예배까지</span>
+        <span id="worship-countdown" class="font-mono font-bold text-gold bg-white/10 px-2 py-0.5 rounded">00:00:00</span>
+        <span id="api-status-dot" class="ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200">
+          🟡 연동 준비중
         </span>
       </div>
-      <div class="flex items-center gap-3">
-        <a href="https://www.youtube.com/@sda5239" target="_blank" class="hover:text-gold transition flex items-center gap-1">
-          <span>▶ 온라인예배(@sda5239)</span>
-        </a>
-        <span class="text-gray-500">|</span>
-        <!-- 개발 테스트용 권한 미리보기 스위처 -->
-        <div class="flex items-center gap-1">
-          <label for="role-preview" class="text-gray-300 hidden sm:inline">미리보기 권한:</label>
-          <select id="role-preview" onchange="changePreviewRole(this.value)" class="bg-navy dark:bg-slate-800 text-white border border-gray-600 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gold">
-            <option value="외부인">1. 외부인 (비로그인)</option>
-            <option value="다산교회">2. 다산교회 (성도)</option>
-            <option value="직원">3. 직원 (제직·반장)</option>
-            <option value="관리자">4. 관리자 (당회·행정)</option>
-          </select>
-        </div>
+
+      <div class="flex items-center gap-2">
+        <span id="view-mode-badge" class="hidden md:inline-block text-[11px] px-2 py-0.5 rounded bg-white/10 text-goldLight font-mono">
+          VIEW: PC_DETAIL
+        </span>
+        <label for="role-preview" class="text-gray-300 hidden sm:inline">권한 미리보기:</label>
+        <select id="role-preview" onchange="changePreviewRole(this.value)" class="bg-navy dark:bg-slate-800 text-white border border-gray-600 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gold">
+          <option value="외부인">1. 외부인 (비로그인)</option>
+          <option value="다산교회">2. 다산교회 (성도)</option>
+          <option value="직원">3. 직원 (제직·반장)</option>
+          <option value="관리자">4. 관리자 (당회·행정)</option>
+        </select>
       </div>
     </div>
   </div>
@@ -75,7 +75,7 @@
         <div>
           <div class="text-[11px] text-gray-500 dark:text-slate-400 leading-none">제칠일안식일예수재림교</div>
           <div class="text-base sm:text-lg font-bold text-navy dark:text-white tracking-tight">
-            다산교회 <span class="text-xs font-normal text-gray-400 hidden sm:inline">dsc.or.kr</span>
+            다산교회 <span class="text-xs font-normal text-gray-400 hidden sm:inline">dsc.or.kr · v3.0</span>
           </div>
         </div>
       </a>
@@ -83,7 +83,7 @@
       <!-- 데스크톱 5대 핵심 내비게이션 -->
       <nav class="hidden lg:flex items-center gap-6 text-sm font-semibold text-gray-700 dark:text-slate-200">
         <a href="#guide-section" class="hover:text-navy dark:hover:text-gold transition">교회안내·선교</a>
-        <a href="#dashboard-widgets" class="hover:text-navy dark:hover:text-gold transition">말씀·일정</a>
+        <a href="#dashboard-widgets" class="hover:text-navy dark:hover:text-gold transition">말씀·담당표·일정</a>
         <a href="#all-services" onclick="filterServices('신앙·편의')" class="hover:text-navy dark:hover:text-gold transition">신앙·소그룹</a>
         <a href="#all-services" onclick="filterServices('예배·봉사')" class="hover:text-navy dark:hover:text-gold transition">예배·봉사</a>
         <a href="#all-services" onclick="filterServices('행정·재정')" class="hover:text-navy dark:hover:text-gold transition">교회행정·Wiki</a>
@@ -108,195 +108,168 @@
   </header>
 
   <!-- 3. 히어로 배너 영역 -->
-  <section class="bg-gradient-to-br from-navy via-navy to-navyDark dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 text-white py-10 sm:py-14 px-4 border-b border-transparent dark:border-slate-800">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-      <div class="lg:col-span-7 space-y-4">
+  <section class="bg-gradient-to-br from-navy via-navy to-navyDark dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 text-white py-8 sm:py-12 px-4 border-b border-transparent dark:border-slate-800">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center">
+      <div class="lg:col-span-7 space-y-3 sm:space-y-4">
         <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-3 py-1 text-xs text-goldLight">
           <span>담임목사 임영운</span>
           <span>•</span>
-          <span>남양주시 진건읍 고재로 197</span>
+          <span>경기도 남양주시 진건읍 고재로 197</span>
         </div>
-        <h1 class="text-2xl sm:text-4xl font-bold leading-snug tracking-tight">
-          이웃을 사랑하고<br class="sm:hidden" /> 세상을 섬기는 <span class="text-gold">다산교회</span>
+        <h1 class="text-2xl sm:text-4xl font-bold leading-tight tracking-tight">
+          기도와 섬김으로 세워가는<br/>
+          <span class="text-gold">다산교회 통합 신앙·행정 포털</span>
         </h1>
-        <p class="text-sm sm:text-base text-gray-200 dark:text-slate-300 max-w-2xl leading-relaxed">
-          기도와 삶의 예배로 하나 되는 믿음의 공동체입니다. 예배 주보와 말씀 묵상, 소그룹 활동부터 성도 신앙생활 및 제직 행정까지 한곳에서 만나보세요.
+        <p class="text-xs sm:text-base text-gray-200 leading-relaxed max-w-2xl">
+          안식일예배(토 10:00), 화요예배(화 19:30), 금요예배(금 19:30)와 함께 예배주보, 활동사진, 소그룹(9개반), 출석·달란트, 현장 체크리스트 및 행정·재정 서비스를 Google Workspace로 통합 제공합니다.
         </p>
-        <div class="pt-2 flex flex-wrap gap-3">
-          <button onclick="openBulletinModal()" id="bulletin-btn" class="bg-gold hover:bg-yellow-500 text-navyDark font-bold text-sm px-5 py-2.5 rounded-lg shadow transition">
-            📄 이번 주 예배주보 보기
-          </button>
-          <a href="#guide-section" onclick="switchGuideTab('offerings')" class="bg-white/10 hover:bg-white/20 border border-white/30 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition">
-            🙏 7대 헌금 안내
-          </a>
-          <a href="#all-services" class="bg-white/10 hover:bg-white/20 border border-white/30 text-white font-medium text-sm px-5 py-2.5 rounded-lg transition">
-            📌 전체 서비스 (30종)
-          </a>
+
+        <!-- 오늘의 말씀(갓모닝 성경구절) & 카카오톡 공유 -->
+        <div class="bg-white/10 border border-white/15 rounded-2xl p-3.5 sm:p-4 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-bold text-gold">📖 오늘의 말씀 · 갓모닝 새벽묵상</span>
+            <button onclick="shareKakaoDevotion()" class="text-[11px] font-bold bg-gold text-navyDark px-2.5 py-1 rounded-lg hover:opacity-90 transition">
+              💬 묵상 복사·공유
+            </button>
+          </div>
+          <p id="daily-verse-text" class="text-xs sm:text-sm text-white leading-relaxed">
+            "너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요" (마태복음 5:14)
+          </p>
         </div>
       </div>
 
-      <!-- OneVoice27 & Light27 캠페인 요약 카드 -->
-      <div class="lg:col-span-5 bg-white/10 dark:bg-slate-800/70 backdrop-blur-sm border border-white/15 dark:border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold uppercase tracking-wider text-gold">2026-2027 선교 비전 캠페인</span>
-          <span class="text-xs bg-gold/20 text-gold px-2.5 py-0.5 rounded-full font-semibold">진행중</span>
-        </div>
-        <h2 class="text-lg sm:text-xl font-bold">OneVoice27 &amp; Light27 실천 서약</h2>
-        <p class="text-xs sm:text-sm text-gray-200 dark:text-slate-300 leading-relaxed">
-          한 목소리로 복음을 전하고 지역사회의 빛이 되는 다산교회 전 성도 기도·전도·봉사 실천 운동입니다.
-        </p>
-        <div>
-          <div class="flex justify-between text-xs mb-1">
-            <span class="text-gray-300">공동체 실천 서약 달성률</span>
-            <span class="font-bold text-gold">72% (목표 100가정)</span>
-          </div>
-          <div class="w-full bg-white/20 dark:bg-slate-700 rounded-full h-2.5">
-            <div class="bg-gold h-2.5 rounded-full" style="width: 72%"></div>
-          </div>
+      <!-- 개인화 카드 슬롯 (비로그인: 오시는 길/새가족 안내, 로그인: 나의 신앙 대시보드) -->
+      <div class="lg:col-span-5">
+        <div id="personalized-card" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl p-5 shadow-lg border border-gray-100 dark:border-slate-800 min-h-[210px] flex flex-col justify-between">
         </div>
       </div>
     </div>
   </section>
 
-  <!-- 메인 컨테이너 -->
-  <main class="max-w-7xl mx-auto px-4 py-8 space-y-10 flex-1 w-full">
+  <!-- 메인 콘텐츠 컨테이너 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 sm:py-8 space-y-8 sm:space-y-10">
 
-    <!-- 4. 실시간 영성·일정·개인화 3단 카드 위젯 -->
-    <section id="dashboard-widgets" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <!-- 좌측 카드: 오늘의 말씀과 묵상 -->
-      <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-5 flex flex-col justify-between transition-colors">
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-xs font-bold text-navy dark:text-gold bg-skyBg dark:bg-slate-800 px-2.5 py-1 rounded-md">오늘의 말씀과 묵상</span>
-            <span class="text-xs text-gray-400 dark:text-slate-500">매일 새벽 업데이트</span>
+    <!-- 4. 개인화 Quick 즐겨찾기(★) & 전자 신청서비스 링크 허브 (v3.0) -->
+    <section id="quick-hub-section" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div id="quick-favorites-slot" class="lg:col-span-6 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800"></div>
+      <div id="quick-links-slot" class="lg:col-span-6 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800"></div>
+    </section>
+
+    <!-- 5. 대시보드 위젯: 주간 담당표(실명 원천차단 검증) + 교회 캘린더 + 활동사진 갤러리 -->
+    <section id="dashboard-widgets" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 주간 담당표 모듈 슬롯 -->
+        <div id="weekly-duty-slot" class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800"></div>
+
+        <!-- 교회 캘린더 & 예배주보 빠른 열람 -->
+        <div class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800 flex flex-col justify-between space-y-4">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="font-bold text-base text-navy dark:text-white">📅 다산교회 주요 일정</h2>
+              <button onclick="openBulletinModal()" class="text-xs font-bold text-navy dark:text-gold bg-skyBg dark:bg-slate-800 px-2.5 py-1 rounded-lg hover:opacity-90 transition">
+                📄 금주 주보 열람
+              </button>
+            </div>
+            <ul id="calendar-event-list" class="space-y-2.5 text-xs sm:text-sm">
+              <li class="flex items-start justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
+                <div>
+                  <span class="font-bold text-navy dark:text-slate-100">안식일학교 및 대예배</span>
+                  <p class="text-xs text-gray-500 dark:text-slate-400">다산교회 본당 · 매주 토요일</p>
+                </div>
+                <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">토 09:30 / 10:00</span>
+              </li>
+              <li class="flex items-start justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
+                <div>
+                  <span class="font-bold text-navy dark:text-slate-100">화요기도·말씀예배</span>
+                  <p class="text-xs text-gray-500 dark:text-slate-400">다산교회 본당 · 매주 화요일</p>
+                </div>
+                <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">화 19:30</span>
+              </li>
+              <li class="flex items-start justify-between last:border-none">
+                <div>
+                  <span class="font-bold text-navy dark:text-slate-100">금요저녁예배</span>
+                  <p class="text-xs text-gray-500 dark:text-slate-400">다산교회 본당 · 매주 금요일</p>
+                </div>
+                <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">금 19:30</span>
+              </li>
+            </ul>
           </div>
-          <h3 class="font-bold text-base text-gray-900 dark:text-white mb-2">갓모닝 새벽묵상 &amp; 온라인예배</h3>
-          <p class="text-xs text-gray-600 dark:text-slate-300 leading-relaxed mb-4">
-            "너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요" (마태복음 5:14)
+          <div class="pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs">
+            <span class="text-gray-500 dark:text-slate-400">온라인예배 &amp; 갓모닝 묵상</span>
+            <a href="https://www.youtube.com/@sda5239" target="_blank" class="font-bold text-navy dark:text-gold hover:underline">
+              유튜브 채널(@sda5239) →
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 활동사진 갤러리 스트립 -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold text-base text-navy dark:text-white">📸 최근 활동사진 앨범</h2>
+          <a href="https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud" target="_blank" class="text-xs font-semibold text-navy dark:text-gold hover:underline">
+            전체 갤러리 폴더 →
+          </a>
+        </div>
+        <div id="gallery-strip-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="col-span-full text-center py-6 text-xs text-gray-500 dark:text-slate-400">
+            공유 드라이브 [02_활동사진_갤러리]에 행사별 폴더(예: 2026_안식일학교)를 생성하면 자동으로 앨범이 표시됩니다.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. 대외 안내관 탭 (7대 헌금 · 패스파인더 · 어드벤처러) -->
+    <section id="guide-section" class="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-200 dark:border-slate-800">
+      <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 dark:border-slate-800 pb-4">
+        <button id="tab-offerings" onclick="switchGuideTab('offerings')" class="bg-navy dark:bg-gold text-white dark:text-navyDark border-navy dark:border-gold text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
+          💛 헌금설명 (7대 헌금)
+        </button>
+        <button id="tab-pathfinder" onclick="switchGuideTab('pathfinder')" class="bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
+          🏕️ 패스파인더 (Pathfinder)
+        </button>
+        <button id="tab-adventurer" onclick="switchGuideTab('adventurer')" class="bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
+          🌱 어드벤처러 (Adventurer)
+        </button>
+      </div>
+
+      <!-- 탭 1: 7대 헌금 안내 -->
+      <div id="panel-offerings" class="pt-6 space-y-4">
+        <div>
+          <span class="inline-block bg-goldLight dark:bg-amber-900/40 text-amber-900 dark:text-gold text-xs font-bold px-3 py-1 rounded-full">성경적 청지기 직분 안내</span>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mt-2">다산교회 7대 헌금 안내</h3>
+          <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-300 mt-1">
+            하나님께서 주신 은혜와 복에 감사하며 선교·구제·교회 운영에 동참하는 7가지 헌금의 의미와 사용 목적입니다.
           </p>
         </div>
-        <div class="space-y-2 pt-3 border-t border-gray-100 dark:border-slate-800">
-          <a href="https://www.youtube.com/@sda5239" target="_blank" class="block w-full text-center bg-navy hover:bg-navyDark dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-semibold py-2.5 rounded-lg transition">
-            ▶ 유튜브 설교·묵상 채널 바로가기
-          </a>
-          <button onclick="shareKakaoDevotion()" class="w-full bg-yellow-300 hover:bg-yellow-400 text-gray-900 text-xs font-bold py-2.5 rounded-lg transition">
-            💬 카카오톡방으로 오늘의 묵상 나누기
-          </button>
-        </div>
-      </div>
-
-      <!-- 중앙 카드: 이번 주 다산교회 일정 (Calendar API 실시간 연동) -->
-      <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-5 flex flex-col justify-between transition-colors">
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-xs font-bold text-navy dark:text-gold bg-skyBg dark:bg-slate-800 px-2.5 py-1 rounded-md">이번 주 교회 일정</span>
-            <span id="calendar-sync-badge" class="text-xs text-gray-400 dark:text-slate-500">Calendar 연동</span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs sm:text-sm">
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">1. 십일조</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">소득의 10분의 1을 하나님께 드리는 성별된 헌금으로 교역자 사역과 복음 전파를 지원합니다.</p>
           </div>
-          <ul id="calendar-event-list" class="space-y-2.5 text-xs sm:text-sm">
-            <li class="flex items-start justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
-              <div>
-                <span class="font-bold text-navy dark:text-slate-100">화요기도회</span>
-                <p class="text-xs text-gray-500 dark:text-slate-400">본당 및 온라인 병행</p>
-              </div>
-              <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded">화 19:30</span>
-            </li>
-            <li class="flex items-start justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
-              <div>
-                <span class="font-bold text-navy dark:text-slate-100">금요저녁예배</span>
-                <p class="text-xs text-gray-500 dark:text-slate-400">안식일을 맞이하는 예배</p>
-              </div>
-              <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded">금 19:30</span>
-            </li>
-            <li class="flex items-start justify-between">
-              <div>
-                <span class="font-bold text-navy dark:text-slate-100">안식일학교 및 대예배</span>
-                <p class="text-xs text-gray-500 dark:text-slate-400">9개 소그룹반 교과 토의 및 대예배</p>
-              </div>
-              <span class="text-xs font-semibold text-amber-800 dark:text-gold bg-goldLight dark:bg-amber-900/40 px-2 py-0.5 rounded">토 10:00</span>
-            </li>
-          </ul>
-        </div>
-        <div class="pt-3 mt-3 border-t border-gray-100 dark:border-slate-800 text-right">
-          <a href="#all-services" class="text-xs font-semibold text-navy dark:text-gold hover:underline">전체 캘린더·식사당번 일정 보기 →</a>
-        </div>
-      </div>
-
-      <!-- 우측 카드: 권한별 맞춤형 퀵 대시보드 -->
-      <div id="personalized-card" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-5 flex flex-col justify-between transition-colors">
-      </div>
-    </section>
-
-    <!-- 4-2. 생동감 있는 활동사진 갤러리 스트립 (Google Drive 실시간 연동) -->
-    <section id="gallery-strip-section" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-5 sm:p-6 transition-colors">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <span class="text-xs font-bold text-gold uppercase tracking-wider">Dasan Photo Gallery</span>
-          <h2 class="text-lg sm:text-xl font-bold text-navy dark:text-white">다산교회 활동사진 갤러리</h2>
-        </div>
-        <a href="https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud" target="_blank" class="text-xs font-semibold text-navy dark:text-gold hover:underline">
-          Drive 전체 앨범 열기 →
-        </a>
-      </div>
-      <div id="gallery-strip-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div class="col-span-full text-center py-6 text-xs text-gray-400 dark:text-slate-500">
-          공유 드라이브(02_활동사진_갤러리)에서 최신 행사 앨범을 불러오는 중입니다...
-        </div>
-      </div>
-    </section>
-
-    <!-- 5. 대외 선교·교육 안내관 (7대 헌금설명 / 패스파인더 / 어드벤처러) -->
-    <section id="guide-section" class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-5 sm:p-7 transition-colors">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-gray-200 dark:border-slate-800">
-        <div>
-          <span class="text-xs font-bold text-gold uppercase tracking-wider">Dasan Mission &amp; Education Guide</span>
-          <h2 class="text-xl sm:text-2xl font-bold text-navy dark:text-white mt-0.5">다산교회 신앙·교육 안내관</h2>
-        </div>
-        <div class="flex gap-2 overflow-x-auto no-scrollbar">
-          <button id="tab-offerings" onclick="switchGuideTab('offerings')" class="bg-navy dark:bg-gold text-white dark:text-navyDark border-navy dark:border-gold text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
-            7대 헌금 설명
-          </button>
-          <button id="tab-pathfinder" onclick="switchGuideTab('pathfinder')" class="bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
-            패스파인더 (청소년)
-          </button>
-          <button id="tab-adventurer" onclick="switchGuideTab('adventurer')" class="bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
-            어드벤처러 (어린이)
-          </button>
-        </div>
-      </div>
-
-      <!-- 탭 1: 7대 헌금 설명 -->
-      <div id="panel-offerings" class="pt-6">
-        <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-300 mb-5 leading-relaxed">
-          다산교회 성도님들과 새가족을 위한 <strong>7가지 헌금의 성경적 의미와 사용 목적</strong> 안내입니다. 로그인 후 <strong>[헌금내역 조회]</strong> 메뉴에서 본인의 헌금 내역을 안전하게 확인하실 수 있습니다.
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700">
-            <div class="text-xs font-bold text-navy dark:text-gold mb-1">01. 십일조 (Tithe)</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">모든 소득의 십분의 일은 하나님의 것임을 고백하는 성경적 청지기 정신의 기본으로, 전 세계 복음 전파와 목회 사역에 사용됩니다.</p>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">2. 월정헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">매월 정성을 다해 드리는 헌금으로 교회 예배·교육·선교 사역의 기반이 됩니다.</p>
           </div>
-          <div class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700">
-            <div class="text-xs font-bold text-navy dark:text-gold mb-1">02. 월정헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">매월 정기적으로 하나님께 드리는 감사와 헌신의 예물로, 지역 교회 운영과 선교 기반을 안정적으로 뒷받침합니다.</p>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">3. 도르가헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">어려운 이웃과 취약계층을 돕는 구제·사랑 실천 사역에 사용됩니다.</p>
           </div>
-          <div class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700">
-            <div class="text-xs font-bold text-navy dark:text-gold mb-1">03. 도르가헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">선행과 구제에 힘쓴 성경 인물 도르가의 정신을 이어받아, 지역사회 소외 이웃 돕기와 긴급 구호 봉사에 전액 사용됩니다.</p>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">4. 교회감사헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">일상과 신앙의 은혜에 감사하며 교회 공동체 사역을 섬기는 헌금입니다.</p>
           </div>
-          <div class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700">
-            <div class="text-xs font-bold text-navy dark:text-gold mb-1">04. 교회감사헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">일상 속에서 베풀어주신 하나님의 은혜와 인도하심에 감사하여 자발적으로 드리는 헌금으로, 교회 제반 사역에 쓰입니다.</p>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">5. 투자헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">하나님과 동역하는 마음으로 작정·실천하는 선교 투자 헌금입니다.</p>
           </div>
-          <div class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700">
-            <div class="text-xs font-bold text-navy dark:text-gold mb-1">05. 투자헌금 (선교투자)</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">성도가 특정 사업·수확·재능의 결실을 하나님과 동업하는 마음으로 약속하여 드리는 안식일학교 선교 기금입니다.</p>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">6. 생일감사헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">생명의 은혜와 한 해를 인도하신 하나님께 감사하며 드리는 헌금입니다.</p>
           </div>
-          <div class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700">
-            <div class="text-xs font-bold text-navy dark:text-gold mb-1">06. 생일감사헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">생명을 주시고 한 해 동안 지켜주신 은혜를 기념하여 생일을 맞은 성도와 가정이 드리는 감사의 예물입니다.</p>
-          </div>
-          <div class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 sm:col-span-2">
-            <div class="text-xs font-bold text-navy dark:text-gold mb-1">07. 교회특별헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">전도회 개최, 교육관 환경 개선, 절기 특별 선교 프로젝트 등 교회의 주요 목적 사업을 위해 드리는 지정 감사헌금입니다.</p>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 sm:col-span-2">
+            <div class="font-bold text-navy dark:text-gold mb-1">7. 교회특별헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">전도집회, 시설 정비, 특별 선교 및 지역사회 섬김 등 목적 사역을 위해 드리는 헌금입니다.</p>
           </div>
         </div>
       </div>
@@ -305,19 +278,19 @@
       <div id="panel-pathfinder" class="pt-6 hidden">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           <div class="md:col-span-2 space-y-3">
-            <span class="inline-block bg-navy dark:bg-slate-800 text-gold text-xs font-bold px-3 py-1 rounded-full">청소년 신앙·봉사 클럽 (초5 ~ 중고등부)</span>
+            <span class="inline-block bg-navy text-white text-xs font-bold px-3 py-1 rounded-full">청소년 신앙·봉사·탐험 클럽 (초5 ~ 고등)</span>
             <h3 class="text-xl font-bold text-gray-900 dark:text-white">다산 패스파인더 (Pathfinder Club)</h3>
             <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
-              패스파인더는 청소년들이 대자연 속에서 하나님을 만나고, 다양한 기능장(Honors) 활동과 지역사회 봉사를 통해 강인한 체력, 바른 인성, 흔들리지 않는 신앙을 기르는 세계적인 재림교회 청소년 훈련 프로그램입니다.
+              패스파인더는 청소년들이 예수님을 구주로 영접하고, 자연 탐험과 기능장 수련, 지역사회 봉사 활동을 통해 균형 잡힌 리더로 성장하도록 돕는 청소년 클럽입니다.
             </p>
             <ul class="text-xs sm:text-sm text-gray-700 dark:text-slate-300 space-y-1.5 pt-2">
-              <li>• <strong>주요 활동:</strong> 야외 캠핑 및 하이킹, 응급처치·매듭법·자연탐구 기능장 이수, 지역 환경정화 봉사</li>
-              <li>• <strong>활동 사진:</strong> 공용 드라이브 [활동사진 갤러리]에서 패스파인더 활동 모습을 확인하실 수 있습니다.</li>
+              <li>• <strong>핵심 활동:</strong> 성경 탐구, 야외 캠핑·하이킹, 기능장(Honor) 배지 취득, 봉사 캠페인</li>
+              <li>• <strong>공동체 성장:</strong> 협동심과 책임감을 기르며 또래 및 지도자와 함께하는 신앙 여정</li>
             </ul>
           </div>
           <div class="bg-skyBg dark:bg-slate-800 rounded-xl p-5 border border-gray-200 dark:border-slate-700 space-y-3">
-            <div class="font-bold text-navy dark:text-gold text-sm">입단 및 활동 문의</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">다산교회 청소년부 및 패스파인더 대장단에서 상시 신입 대원을 환영합니다.</p>
+            <div class="font-bold text-navy dark:text-gold text-sm">패스파인더 활동 갤러리</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">청소년 클럽 모임 및 탐험·봉사 사진을 공유 드라이브 갤러리에서 확인하세요.</p>
             <a href="https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud" target="_blank" class="block text-center bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-semibold py-2.5 rounded-lg hover:opacity-90 transition">
               📸 활동사진 갤러리 바로가기
             </a>
@@ -350,58 +323,55 @@
       </div>
     </section>
 
-    <!-- 6. 30대 통합 서비스 전체 메뉴 맵 -->
+    <!-- 7. 30대 통합 서비스 전체 메뉴 맵 -->
     <section id="all-services" class="space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 class="text-xl font-bold text-navy dark:text-white">다산교회 통합 서비스 바로가기 (30종)</h2>
-          <p class="text-xs text-gray-500 dark:text-slate-400 mt-0.5">카드를 클릭하면 실시간 DB 연동 팝업 창이 열립니다.</p>
+          <h2 class="text-lg sm:text-xl font-bold text-navy dark:text-white">🧩 30대 통합 신앙·봉사·행정 서비스</h2>
+          <p class="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+            권한 등급에 따라 이용 가능한 메뉴가 표시되며, ★ 버튼으로 개인 Quick 즐겨찾기에 추가할 수 있습니다.
+          </p>
         </div>
-        <div class="flex gap-1.5 overflow-x-auto no-scrollbar text-xs">
-          <button onclick="filterServices('ALL')" class="srv-filter bg-navy dark:bg-gold text-white dark:text-navyDark px-3 py-1.5 rounded-lg font-semibold">전체(30)</button>
-          <button onclick="filterServices('대외·선교')" class="srv-filter bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 px-3 py-1.5 rounded-lg font-semibold">대외·선교(9)</button>
-          <button onclick="filterServices('신앙·편의')" class="srv-filter bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 px-3 py-1.5 rounded-lg font-semibold">신앙·편의(8)</button>
-          <button onclick="filterServices('예배·봉사')" class="srv-filter bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 px-3 py-1.5 rounded-lg font-semibold">예배·봉사(5)</button>
-          <button onclick="filterServices('행정·재정')" class="srv-filter bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700 px-3 py-1.5 rounded-lg font-semibold">행정·Wiki(8)</button>
+        <div class="flex flex-wrap gap-1.5" id="category-filter-bar">
+          <button onclick="filterServices('ALL')" data-cat="ALL" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-navy text-white dark:bg-gold dark:text-navyDark">전체 (30)</button>
+          <button onclick="filterServices('대외·선교')" data-cat="대외·선교" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">대외·선교 (9)</button>
+          <button onclick="filterServices('신앙·편의')" data-cat="신앙·편의" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">신앙·편의 (8)</button>
+          <button onclick="filterServices('예배·봉사')" data-cat="예배·봉사" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">예배·봉사 (5)</button>
+          <button onclick="filterServices('행정·재정')" data-cat="행정·재정" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">행정·재정·Wiki (8)</button>
         </div>
       </div>
 
-      <div id="services-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      </div>
+      <div id="services-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4"></div>
     </section>
 
   </main>
 
-  <!-- 7. 푸터 -->
-  <footer class="bg-navyDark dark:bg-black text-gray-300 text-xs py-8 px-4 mt-12 border-t border-transparent dark:border-slate-800">
-    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between gap-4">
-      <div class="space-y-1">
-        <div class="text-white font-bold text-sm">제칠일안식일예수재림교 다산교회</div>
-        <p>경기도 남양주시 진건읍 고재로 197 | 담임목사: 임영운 목사</p>
-        <p class="text-gray-400">예배시간: 안식일예배 토 10:00 · 화요예배 화 19:30 · 금요예배 금 19:30</p>
+  <!-- 8. 푸터 -->
+  <footer class="bg-navyDark dark:bg-black text-gray-300 text-xs py-6 px-4 border-t border-white/10 mt-8">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div>
+        <strong class="text-white">제칠일안식일예수재림교 다산교회</strong> · 경기도 남양주시 진건읍 고재로 197
       </div>
-      <div class="sm:text-right space-y-1 text-gray-400">
-        <p>Powered by Google Workspace &amp; dsc.or.kr</p>
-        <p>© 2026 Dasan Seventh-day Adventist Church. All rights reserved.</p>
+      <div class="text-gray-400">
+        dsc.or.kr · Google Workspace 통합 포털 (v3.0 1차 중간 배포)
       </div>
     </div>
   </footer>
 
-  <!-- 8. 30대 서비스 통합 팝업 모달 -->
-  <div id="service-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[88vh] flex flex-col overflow-hidden">
-      <div class="px-5 py-4 bg-navy dark:bg-slate-800 text-white flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span id="modal-icon" class="text-xl">📌</span>
+  <!-- 9. 서비스 조회·신청 모달 -->
+  <div id="service-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-[1px] flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-gray-200 dark:border-slate-700">
+      <div class="sticky top-0 bg-white dark:bg-slate-900 px-5 py-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span id="modal-icon" class="text-2xl">📌</span>
           <div>
-            <h3 id="modal-title" class="font-bold text-base">서비스 제목</h3>
-            <p id="modal-subtitle" class="text-[11px] text-gray-300">Google Workspace 실시간 연동</p>
+            <h3 id="modal-title" class="font-bold text-base text-navy dark:text-white">서비스 제목</h3>
+            <p id="modal-subtitle" class="text-[11px] text-gray-500 dark:text-slate-400">연동 정보</p>
           </div>
         </div>
-        <button onclick="closeServiceModal()" class="text-gray-300 hover:text-white text-xl font-bold px-2">✕</button>
+        <button onclick="closeServiceModal()" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl font-bold px-2">✕</button>
       </div>
-      <div id="modal-body" class="p-5 overflow-y-auto space-y-4 text-xs sm:text-sm">
-      </div>
+      <div id="modal-body" class="p-5 space-y-4 text-xs sm:text-sm"></div>
     </div>
   </div>
 
@@ -415,12 +385,12 @@
       const text = document.getElementById('theme-text');
       if (theme === 'dark') {
         html.classList.add('dark');
-        icon.textContent = '☀️';
-        text.textContent = '밝음';
+        if (icon) icon.textContent = '☀️';
+        if (text) text.textContent = '밝음';
       } else {
         html.classList.remove('dark');
-        icon.textContent = '🌙';
-        text.textContent = '어두움';
+        if (icon) icon.textContent = '🌙';
+        if (text) text.textContent = '어두움';
       }
       try { localStorage.setItem('dsc_theme', theme); } catch (e) {}
     }
@@ -436,20 +406,25 @@
       applyTheme(saved);
     })();
 
-   
-// =========================================================
-    // 1. 시스템 설정 (Apps Script 웹 앱 URL 및 Drive 폴더 연동)
+    // =========================================================
+    // 1. 시스템 설정 (Apps Script 웹 앱 URL 및 공유 드라이브 폴더 매핑)
     // =========================================================
     const CONFIG = {
       API_URL: 'https://script.google.com/macros/s/AKfycbyeYkLPvjdToxRf8TUnOSPi3qN2osTse-GMi0ZviPebfnNbRcyJLTP9CNky3l3gV0L8/exec',
       GOOGLE_CLIENT_ID: '214036144218-7rk41ek615sa24odk1hgn9cohv1a9nae.apps.googleusercontent.com',
       ROLE_LEVEL: { '외부인': 1, '다산교회': 2, '직원': 3, '관리자': 4 },
       FOLDERS: {
-        BULLETIN: 'https://drive.google.com/drive/folders/196A3OSAfcPn_EtvQ98f5mLwDrtjoxmnt',
+        BULLETIN: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
         GALLERY: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
-        MANUAL: 'https://drive.google.com/drive/folders/1tGIMhnbMR20R7ArNArzhVk0f4AdKcDjC',
-        RECEIPT: 'https://drive.google.com/drive/folders/1VtsX-g1p8UKwk_L540vwlvjjujXhF4iw'
-      }
+        MANUAL: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
+        VOUCHER_RECEIPT: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud'
+      },
+      QUICK_HUB_LINKS: [
+        { title: '전자결재_지불결의서', desc: '02_결재_지불결의서 기안·결재', minRole: 3, icon: '🧾', url: 'https://drive.google.com' },
+        { title: '전자신청_기부금영수증', desc: '03_신청_기부금영수증 신청', minRole: 2, icon: '📄', url: 'https://drive.google.com' },
+        { title: '전자신청_제안함', desc: '04_신청_제안함 접수·건의', minRole: 2, icon: '💡', url: 'https://drive.google.com' },
+        { title: '전자투표_직원회안건', desc: '05_투표_직원회안건 직원 투표', minRole: 3, icon: '🗳️', url: 'https://drive.google.com' }
+      ]
     };
 
     const ROLE_LEVEL = CONFIG.ROLE_LEVEL;
@@ -457,49 +432,291 @@
     let currentCategory = 'ALL';
     let currentIdToken = '';
     let currentUserProfile = null;
-    let hubCache = { bulletins: [], galleries: [], events: [] };
+    let hubCache = { bulletins: [], galleries: [], events: [], duties: [] };
+    let favoriteIds = [];
+
+    function loadFavorites() {
+      try {
+        const raw = localStorage.getItem('dsc_quick_favorites');
+        favoriteIds = raw ? JSON.parse(raw) : ['헌금내역 조회', '달란트 관리', '예배주보 (Drive)'];
+      } catch (e) {
+        favoriteIds = ['헌금내역 조회', '달란트 관리', '예배주보 (Drive)'];
+      }
+    }
+
+    function saveFavorites() {
+      try { localStorage.setItem('dsc_quick_favorites', JSON.stringify(favoriteIds)); } catch (e) {}
+    }
+
+    function toggleFavorite(title, ev) {
+      if (ev) ev.stopPropagation();
+      if (ROLE_LEVEL[currentRole] < 2) {
+        alert('Quick 즐겨찾기(★) 저장은 성도(2. 다산교회) 이상 로그인 후 이용하실 수 있습니다.');
+        return;
+      }
+      const idx = favoriteIds.indexOf(title);
+      if (idx >= 0) favoriteIds.splice(idx, 1);
+      else favoriteIds.push(title);
+      saveFavorites();
+      renderQuickHub();
+      renderServices();
+    }
 
     // =========================================================
-    // 2. Apps Script API 공통 호출 엔진 (CORS 안전 text/plain)
+    // 2. BaseModule 추상 클래스 및 듀얼 뷰(PC_DETAIL / MOBILE_COMPACT)
+    // =========================================================
+    function getViewMode() {
+      return window.innerWidth < 768 ? 'MOBILE_COMPACT' : 'PC_DETAIL';
+    }
+
+    class BaseModule {
+      constructor({ menuId, title, minRole = 1, viewMode = null, container }) {
+        this.menuId = menuId;
+        this.title = title;
+        this.minRole = minRole;
+        this.viewMode = viewMode || getViewMode();
+        this.container = typeof container === 'string' ? document.querySelector(container) : container;
+      }
+      async fetchData() { return {}; }
+      renderDesktop(data) { return ''; }
+      renderMobile(data) { return this.renderDesktop(data); }
+      renderBlocked() {
+        return `<div class="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 text-xs text-gray-500 dark:text-slate-400">
+          🔒 [${this.title}] 메뉴는 로그인 후 열람 가능합니다.
+        </div>`;
+      }
+      async mount() {
+        if (!this.container) return;
+        this.viewMode = getViewMode();
+        if (ROLE_LEVEL[currentRole] < this.minRole) {
+          this.container.innerHTML = this.renderBlocked();
+          return;
+        }
+        const data = await this.fetchData();
+        this.container.innerHTML = this.viewMode === 'MOBILE_COMPACT'
+          ? this.renderMobile(data)
+          : this.renderDesktop(data);
+      }
+    }
+
+    // =========================================================
+    // 3. Apps Script API 공통 호출 엔진 및 외부인 성명 원천 차단 헬퍼
     // =========================================================
     async function callApi(action, payload = {}) {
-      if (!CONFIG.API_URL) {
-        return { ok: false, error: 'API_URL이 설정되지 않았습니다.' };
-      }
       const res = await fetch(CONFIG.API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: action,
           idToken: currentIdToken,
+          rolePreview: currentRole,
           payload: payload
         })
       });
       return await res.json();
     }
 
-    // 페이지 접속 시 공개 허브 데이터(주보·갤러리·캘린더) 실시간 로드
+    // 외부인(비로그인) 또는 서버 미인증 상태에서는 성도 실명을 절대 노출하지 않음
+    function sanitizeMemberName(rawName) {
+      const hasVerifiedSession = Boolean(currentIdToken) && ROLE_LEVEL[currentRole] >= 2;
+      if (!hasVerifiedSession) {
+        return '로그인 후 열람 가능';
+      }
+      return rawName || '배정 예정';
+    }
+
     async function loadPublicHubData() {
       const statusDot = document.getElementById('api-status-dot');
       try {
         const data = await callApi('getPublicHubData');
-        if (data.ok) {
-          hubCache = data;
-          statusDot.innerHTML = '🟢 실시간 연동됨';
-          statusDot.className = 'ml-1.5 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300';
-          renderGalleryStrip(data.galleries || []);
-          renderCalendarEvents(data.events || []);
+        if (data && data.ok) {
+          hubCache = {
+            bulletins: data.bulletins || [],
+            galleries: data.galleries || [],
+            events: data.events || [],
+            duties: data.duties || []
+          };
+          if (statusDot) {
+            statusDot.innerHTML = '🟢 실시간 연동됨';
+            statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300';
+          }
+          renderGalleryStrip(hubCache.galleries);
+          renderCalendarEvents(hubCache.events);
+          mountAllModules();
         } else {
-          statusDot.innerHTML = '🟡 API 점검중';
+          if (statusDot) {
+            statusDot.innerHTML = '🟡 API 점검중';
+            statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200';
+          }
         }
       } catch (err) {
         console.error('API 연동 오류:', err);
-        statusDot.innerHTML = '🔴 오프라인 모드';
+        if (statusDot) {
+          statusDot.innerHTML = '🔴 오프라인/대기 모드';
+          statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-200';
+        }
       }
+    }
+
+    // =========================================================
+    // 4. 주간 담당표(WeeklyDutyModule) & 전자 신청 허브(QuickLinkHubModule)
+    // =========================================================
+    class WeeklyDutyModule extends BaseModule {
+      async fetchData() {
+        const sampleDuties = [
+          { period: '이번 주', role: '대예배 사회·기도·설교', member: '안식일 순서자' },
+          { period: '이번 주', role: '시무장로 · 시무집사', member: '당번 장로·집사' },
+          { period: '이번 주', role: '식사당번 · 설거지 · 주차', member: '애찬·주차 봉사조' },
+          { period: '다음 주', role: '대예배 사회·기도·설교', member: '차주 순서자' },
+          { period: '다음 주', role: '시무장로 · 시무집사', member: '차주 장로·집사' },
+          { period: '다음 주', role: '식사당번 · 설거지 · 주차', member: '차주 봉사조' }
+        ];
+        const rows = (hubCache.duties && hubCache.duties.length) ? hubCache.duties : sampleDuties;
+        return rows.map(r => ({
+          period: r.period || '이번 주',
+          role: r.role || '담당 영역',
+          member: sanitizeMemberName(r.member)
+        }));
+      }
+
+      renderBlocked() {
+        return `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-base text-navy dark:text-white">📋 이번 주 / 다음 주 담당표</h2>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
+              실명 보호 차단중
+            </span>
+          </div>
+          <div class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 space-y-2">
+            <p class="text-xs sm:text-sm font-semibold text-navy dark:text-gold">
+              외부인(비로그인) 접근 시 성도 실명 노출이 원천 차단됩니다.
+            </p>
+            <p class="text-xs text-gray-600 dark:text-slate-300">
+              예배·시무·식사·설거지·주차 담당표 상세 열람은 다산교회 성도 계정 로그인 후 이용하실 수 있습니다.
+            </p>
+          </div>`;
+      }
+
+      renderDesktop(rows) {
+        const hasVerifiedSession = Boolean(currentIdToken) && ROLE_LEVEL[currentRole] >= 2;
+        return `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-base text-navy dark:text-white">📋 이번 주 / 다음 주 담당표 (PC_DETAIL)</h2>
+            <span class="text-[11px] px-2 py-0.5 rounded ${hasVerifiedSession ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'} font-semibold">
+              ${hasVerifiedSession ? '실명 열람 인증됨' : '미인증: 성명 마스킹 적용'}
+            </span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+              <thead>
+                <tr class="bg-skyBg dark:bg-slate-800 text-navy dark:text-slate-200 border-b border-gray-200 dark:border-slate-700">
+                  <th class="p-2.5 text-left font-bold">구분</th>
+                  <th class="p-2.5 text-left font-bold">담당 영역 (예배·시무·식사·설거지·주차)</th>
+                  <th class="p-2.5 text-left font-bold">담당자</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(r => `
+                  <tr class="border-b border-gray-100 dark:border-slate-800 last:border-none">
+                    <td class="p-2.5 font-semibold text-navy dark:text-gold whitespace-nowrap">${r.period}</td>
+                    <td class="p-2.5 text-gray-700 dark:text-slate-300">${r.role}</td>
+                    <td class="p-2.5 font-medium text-gray-900 dark:text-slate-100">${r.member}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`;
+      }
+
+      renderMobile(rows) {
+        const thisWeek = rows.filter(r => r.period === '이번 주').slice(0, 3);
+        return `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-sm text-navy dark:text-white">📋 금주 핵심 담당 요약 (MOBILE_COMPACT)</h2>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 text-navy dark:text-gold">간략뷰</span>
+          </div>
+          <div class="space-y-2">
+            ${thisWeek.map(r => `
+              <div class="p-3 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                <div class="text-xs font-bold text-navy dark:text-slate-100">${r.role}</div>
+                <div class="text-xs text-gray-600 dark:text-slate-300 shrink-0">${r.member}</div>
+              </div>
+            `).join('')}
+          </div>`;
+      }
+    }
+
+    function renderQuickHub() {
+      const favSlot = document.getElementById('quick-favorites-slot');
+      const linkSlot = document.getElementById('quick-links-slot');
+      const userLv = ROLE_LEVEL[currentRole];
+
+      if (favSlot) {
+        const favServices = SERVICES.filter(s => favoriteIds.includes(s.title));
+        favSlot.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-sm sm:text-base text-navy dark:text-white">⭐ 개인화 Quick 즐겨찾기</h2>
+            <span class="text-[11px] text-gray-500 dark:text-slate-400">${userLv >= 2 ? '자주 쓰는 메뉴 바로가기' : '성도 로그인 후 활성화'}</span>
+          </div>
+          ${userLv < 2
+            ? `<div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 text-xs text-gray-600 dark:text-slate-300">
+                로그인 후 서비스 카드의 ★ 버튼을 눌러 나만의 퀵 메뉴를 구성할 수 있습니다.
+               </div>`
+            : `<div class="flex flex-wrap gap-2">
+                ${favServices.length ? favServices.map(srv => `
+                  <button onclick="handleServiceClick(${SERVICES.indexOf(srv)})"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-skyBg dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-xs font-bold text-navy dark:text-gold transition">
+                    <span>${srv.icon}</span>
+                    <span>${srv.title}</span>
+                  </button>
+                `).join('') : `<span class="text-xs text-gray-500">즐겨찾기로 지정한 메뉴가 없습니다.</span>`}
+               </div>`
+          }`;
+      }
+
+      if (linkSlot) {
+        const visibleLinks = CONFIG.QUICK_HUB_LINKS.filter(l => userLv >= l.minRole);
+        linkSlot.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-sm sm:text-base text-navy dark:text-white">🔗 전자 신청서비스 링크 허브</h2>
+            <span class="text-[11px] text-gray-500 dark:text-slate-400">결재·영수증·제안·투표</span>
+          </div>
+          ${visibleLinks.length
+            ? `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                ${visibleLinks.map(l => `
+                  <a href="${l.url}" target="_blank"
+                    class="p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-skyBg/60 dark:bg-slate-800 hover:border-navy dark:hover:border-gold transition flex items-center gap-2.5">
+                    <span class="text-lg">${l.icon}</span>
+                    <div class="min-w-0">
+                      <div class="text-xs font-bold text-navy dark:text-white truncate">${l.title}</div>
+                      <div class="text-[11px] text-gray-500 dark:text-slate-400 truncate">${l.desc}</div>
+                    </div>
+                  </a>
+                `).join('')}
+               </div>`
+            : `<div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 text-xs text-gray-600 dark:text-slate-300">
+                전자 신청·결재·투표 서비스는 성도(2. 다산교회) 또는 직원(3. 직원) 로그인 시 노출됩니다.
+               </div>`
+          }`;
+      }
+    }
+
+    function mountAllModules() {
+      const badge = document.getElementById('view-mode-badge');
+      if (badge) badge.textContent = `VIEW: ${getViewMode()}`;
+      const dutyMod = new WeeklyDutyModule({
+        menuId: 'WEEKLY_DUTY',
+        title: '이번 주 / 다음 주 담당표',
+        minRole: 2,
+        container: '#weekly-duty-slot'
+      });
+      dutyMod.mount();
+      renderQuickHub();
     }
 
     function renderGalleryStrip(albums) {
       const grid = document.getElementById('gallery-strip-grid');
+      if (!grid) return;
       if (!albums.length) {
         grid.innerHTML = `
           <div class="col-span-full text-center py-6 text-xs text-gray-500 dark:text-slate-400">
@@ -528,6 +745,7 @@
     function renderCalendarEvents(events) {
       if (!events.length) return;
       const list = document.getElementById('calendar-event-list');
+      if (!list) return;
       list.innerHTML = events.slice(0, 4).map(ev => {
         const d = new Date(ev.start);
         const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
@@ -554,7 +772,7 @@
             <div class="flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-skyBg/50 dark:bg-slate-800">
               <div>
                 <span class="font-bold text-navy dark:text-white">${idx === 0 ? '🆕 ' : ''}${b.name}</span>
-                <div class="text-[11px] text-gray-500 dark:text-slate-400">업데이트: ${b.updated.slice(0, 10)}</div>
+                <div class="text-[11px] text-gray-500 dark:text-slate-400">업데이트: ${(b.updated || '').slice(0, 10)}</div>
               </div>
               <a href="${b.url}" target="_blank" class="bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-bold px-3 py-1.5 rounded-lg">열람하기</a>
             </div>
@@ -573,10 +791,10 @@
     }
 
     // =========================================================
-    // 3. Google OAuth 로그인 및 권한 관리
+    // 5. Google OAuth 로그인 및 권한 관리
     // =========================================================
     function handleAuthClick() {
-      if (currentRole !== '외부인') {
+      if (currentRole !== '외부인' || currentIdToken) {
         currentIdToken = '';
         currentUserProfile = null;
         document.getElementById('role-preview').value = '외부인';
@@ -584,32 +802,32 @@
         return;
       }
 
-      if (CONFIG.GOOGLE_CLIENT_ID && window.google) {
+      if (CONFIG.GOOGLE_CLIENT_ID && window.google && window.google.accounts && window.google.accounts.id) {
         google.accounts.id.initialize({
           client_id: CONFIG.GOOGLE_CLIENT_ID,
           callback: async (response) => {
             currentIdToken = response.credential;
             const res = await callApi('getSessionProfile');
-            if (res.ok && res.user) {
+            if (res && res.ok && res.user) {
               currentUserProfile = res.user;
-              document.getElementById('role-preview').value = res.user.role;
-              changePreviewRole(res.user.role);
-              alert(`${res.user.name}님 환영합니다! (${res.user.role} 등급으로 로그인되었습니다)`);
+              const resolvedRole = res.user.role || '외부인';
+              document.getElementById('role-preview').value = resolvedRole;
+              changePreviewRole(resolvedRole);
+              alert(`${sanitizeMemberName(res.user.name)}님 환영합니다! (${resolvedRole} 등급으로 로그인되었습니다)`);
             } else {
-              alert(res.error || '로그인 검증에 실패했습니다.');
+              alert((res && res.error) || '로그인 검증에 실패했습니다.');
             }
           }
         });
         google.accounts.id.prompt();
       } else {
-        // OAuth 클라이언트 ID 등록 전 성도 체험 모드 전환
         document.getElementById('role-preview').value = '다산교회';
         changePreviewRole('다산교회');
       }
     }
 
     // =========================================================
-    // 4. 30대 서비스 정의 및 실시간 DB 조회·등록 모달
+    // 6. 30대 서비스 정의 및 실시간 DB 조회·등록 모달
     // =========================================================
     const SERVICES = [
       // 대외·선교 (9종)
@@ -653,7 +871,8 @@
 
     async function handleServiceClick(index) {
       const srv = SERVICES[index];
-      const userLv = ROLE_LEVEL[currentRole];
+      if (!srv) return;
+      const userLv = ROLE_LEVEL[currentRole] || 1;
       if (userLv < srv.minRole) {
         alert(`[접근 제한] '${srv.title}' 메뉴는 [${Object.keys(ROLE_LEVEL).find(k => ROLE_LEVEL[k] === srv.minRole)}] 등급 이상 로그인 후 이용하실 수 있습니다.`);
         return;
@@ -665,7 +884,6 @@
         return;
       }
 
-      // Google Sheets 연동 서비스 모달 오픈
       openSheetServiceModal(srv);
     }
 
@@ -698,7 +916,7 @@
         <div id="modal-sheet-data" class="text-center py-6 text-xs text-gray-500">
           ${currentIdToken
             ? '⏳ Google Sheets에서 실시간 데이터를 불러오는 중입니다...'
-            : '💡 현재 [미리보기 권한 체험 모드]입니다. Google Cloud OAuth ID 연결 후 실제 Google 로그인을 하면 본인의 시트 내역이 실시간 조회됩니다.'}
+            : '💡 현재 [미리보기 권한 체험 모드]입니다. Google OAuth 인증 세션(idToken) 연결 시 실제 DB 내역 조회 및 저장이 활성화됩니다.'}
         </div>
       `;
       modal.classList.remove('hidden');
@@ -706,7 +924,7 @@
       if (currentIdToken && srv.sheet) {
         const res = await callApi('querySheet', { sheetName: srv.sheet });
         const container = document.getElementById('modal-sheet-data');
-        if (res.ok && res.rows && res.rows.length) {
+        if (res && res.ok && res.rows && res.rows.length) {
           const cols = Object.keys(res.rows[0]).slice(0, 5);
           container.innerHTML = `
             <div class="overflow-x-auto text-left">
@@ -726,7 +944,7 @@
               </table>
             </div>`;
         } else {
-          container.textContent = res.error || '조회된 데이터 내역이 없습니다.';
+          container.textContent = (res && res.error) || '조회된 데이터 내역이 없습니다.';
         }
       }
     }
@@ -740,11 +958,11 @@
       const fd = new FormData(e.target);
       const record = Object.fromEntries(fd.entries());
       const res = await callApi('insertRow', { sheetName, record });
-      if (res.ok) {
+      if (res && res.ok) {
         alert('✅ 다산교회 통합 DB에 정상 등록되었습니다!');
         closeServiceModal();
       } else {
-        alert('등록 오류: ' + (res.error || '권한을 확인해 주세요.'));
+        alert('등록 오류: ' + ((res && res.error) || '권한을 확인해 주세요.'));
       }
     }
 
@@ -753,7 +971,7 @@
     }
 
     // =========================================================
-    // 5. 실시간 다음 예배 카운트다운 및 기존 UI 로직
+    // 7. 실시간 예배 카운트다운, 권한 변경 및 UI 렌더링
     // =========================================================
     function updateWorshipCountdown() {
       const now = new Date();
@@ -773,13 +991,15 @@
         const diff = target - now;
         if (diff < minDiff) { minDiff = diff; nearest = { name: s.name, diff }; }
       });
+      if (!nearest) return;
       const days = Math.floor(nearest.diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((nearest.diff / (1000 * 60 * 60)) % 24);
       const mins = Math.floor((nearest.diff / (1000 * 60)) % 60);
       const secs = Math.floor((nearest.diff / 1000) % 60);
-      document.getElementById('next-worship-label').textContent = `다음 ${nearest.name}까지`;
-      document.getElementById('worship-countdown').textContent =
-        `${days > 0 ? days + '일 ' : ''}${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      const lbl = document.getElementById('next-worship-label');
+      const cd = document.getElementById('worship-countdown');
+      if (lbl) lbl.textContent = `다음 ${nearest.name}까지`;
+      if (cd) cd.textContent = `${days > 0 ? days + '일 ' : ''}${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
     setInterval(updateWorshipCountdown, 1000);
     updateWorshipCountdown();
@@ -788,6 +1008,7 @@
       ['offerings', 'pathfinder', 'adventurer'].forEach(t => {
         const btn = document.getElementById('tab-' + t);
         const panel = document.getElementById('panel-' + t);
+        if (!btn || !panel) return;
         if (t === tabName) {
           btn.className = 'bg-navy dark:bg-gold text-white dark:text-navyDark border-navy dark:border-gold text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap';
           panel.classList.remove('hidden');
@@ -796,7 +1017,7 @@
           panel.classList.add('hidden');
         }
       });
-      document.getElementById('guide-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById('guide-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function changePreviewRole(role) {
@@ -804,20 +1025,27 @@
       const badge = document.getElementById('user-badge');
       const authBtn = document.getElementById('auth-btn');
       if (role === '외부인') {
-        badge.textContent = '1. 외부인';
-        badge.className = 'hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300';
-        authBtn.textContent = 'Google 로그인';
+        if (badge) {
+          badge.textContent = '1. 외부인';
+          badge.className = 'hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300';
+        }
+        if (authBtn) authBtn.textContent = 'Google 로그인';
       } else {
-        badge.textContent = `${ROLE_LEVEL[role]}. ${currentUserProfile ? currentUserProfile.name : role}`;
-        badge.className = 'hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-goldLight dark:bg-amber-900/50 text-amber-900 dark:text-gold';
-        authBtn.textContent = '로그아웃';
+        const displayName = currentIdToken && currentUserProfile ? sanitizeMemberName(currentUserProfile.name) : `${role} (미리보기)`;
+        if (badge) {
+          badge.textContent = `${ROLE_LEVEL[role]}. ${displayName}`;
+          badge.className = 'hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-goldLight dark:bg-amber-900/50 text-amber-900 dark:text-gold';
+        }
+        if (authBtn) authBtn.textContent = '로그아웃';
       }
       renderPersonalizedCard();
+      mountAllModules();
       renderServices();
     }
 
     function renderPersonalizedCard() {
       const card = document.getElementById('personalized-card');
+      if (!card) return;
       if (currentRole === '외부인') {
         card.innerHTML = `
           <div>
@@ -840,32 +1068,40 @@
             </button>
           </div>`;
       } else {
+        const isRealAuth = Boolean(currentIdToken) && Boolean(currentUserProfile);
+        const talentDisplay = isRealAuth && currentUserProfile.talent !== undefined ? `${currentUserProfile.talent} P` : '미리보기';
+        const groupDisplay = isRealAuth && currentUserProfile.groupNo ? currentUserProfile.groupNo : '소속반';
+        const attDisplay = isRealAuth && currentUserProfile.attendanceRate ? currentUserProfile.attendanceRate : '로그인 후 확인';
+        const offeringIdx = SERVICES.findIndex(s => s.title === '헌금내역 조회');
+        const talentIdx = SERVICES.findIndex(s => s.title === '달란트 관리');
         card.innerHTML = `
           <div>
             <div class="flex items-center justify-between mb-3">
               <span class="text-xs font-bold text-amber-900 dark:text-gold bg-goldLight dark:bg-amber-900/40 px-2.5 py-1 rounded-md">나의 신앙 대시보드 (${currentRole})</span>
-              <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">● 인증됨</span>
+              <span class="text-xs ${isRealAuth ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} font-semibold">
+                ${isRealAuth ? '● 실계정 인증됨' : '◐ 미리보기 모드'}
+              </span>
             </div>
             <div class="grid grid-cols-3 gap-2 text-center my-2">
               <div class="bg-skyBg dark:bg-slate-800 p-2.5 rounded-xl">
                 <div class="text-[11px] text-gray-500 dark:text-slate-400">누적 달란트</div>
-                <div class="text-base font-bold text-navy dark:text-gold">120 P</div>
+                <div class="text-sm font-bold text-navy dark:text-gold">${talentDisplay}</div>
               </div>
               <div class="bg-skyBg dark:bg-slate-800 p-2.5 rounded-xl">
-                <div class="text-[11px] text-gray-500 dark:text-slate-400">소속반</div>
-                <div class="text-base font-bold text-navy dark:text-white">${currentUserProfile ? currentUserProfile.groupNo : '1반'}</div>
+                <div class="text-[11px] text-gray-500 dark:text-slate-400">소그룹반</div>
+                <div class="text-sm font-bold text-navy dark:text-white">${groupDisplay}</div>
               </div>
               <div class="bg-skyBg dark:bg-slate-800 p-2.5 rounded-xl">
                 <div class="text-[11px] text-gray-500 dark:text-slate-400">금월 출석</div>
-                <div class="text-base font-bold text-emerald-700 dark:text-emerald-400">100%</div>
+                <div class="text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400">${attDisplay}</div>
               </div>
             </div>
           </div>
           <div class="pt-3 border-t border-gray-100 dark:border-slate-800 flex gap-2">
-            <button onclick="handleServiceClick(13)" class="flex-1 text-center bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-bold py-2.5 rounded-lg hover:opacity-90 transition">
+            <button onclick="handleServiceClick(${offeringIdx})" class="flex-1 text-center bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-bold py-2.5 rounded-lg hover:opacity-90 transition">
               🔒 본인 헌금조회
             </button>
-            <button onclick="handleServiceClick(11)" class="flex-1 text-center bg-skyBg dark:bg-slate-800 text-navy dark:text-slate-200 text-xs font-bold py-2.5 rounded-lg hover:opacity-90 transition">
+            <button onclick="handleServiceClick(${talentIdx})" class="flex-1 text-center bg-skyBg dark:bg-slate-800 text-navy dark:text-slate-200 text-xs font-bold py-2.5 rounded-lg hover:opacity-90 transition">
               🏆 달란트 적립
             </button>
           </div>`;
@@ -874,18 +1110,27 @@
 
     function filterServices(cat) {
       currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        const active = btn.getAttribute('data-cat') === cat;
+        btn.className = active
+          ? 'cat-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-navy text-white dark:bg-gold dark:text-navyDark'
+          : 'cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700';
+      });
       renderServices();
     }
 
     function renderServices() {
       const grid = document.getElementById('services-grid');
-      const userLv = ROLE_LEVEL[currentRole];
+      if (!grid) return;
+      const userLv = ROLE_LEVEL[currentRole] || 1;
       const filtered = currentCategory === 'ALL' ? SERVICES : SERVICES.filter(s => s.cat === currentCategory);
       grid.innerHTML = filtered.map((srv) => {
+        const srvIdx = SERVICES.indexOf(srv);
         const unlocked = userLv >= srv.minRole;
+        const isFav = favoriteIds.includes(srv.title);
         const roleTag = srv.minRole === 1 ? '전체' : srv.minRole === 2 ? '성도+' : srv.minRole === 3 ? '직원+' : '관리자';
         return `
-          <div onclick="handleServiceClick(${SERVICES.indexOf(srv)})"
+          <div onclick="handleServiceClick(${srvIdx})"
                class="cursor-pointer rounded-xl p-3.5 border transition flex flex-col justify-between ${
                  unlocked
                    ? 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 hover:border-navy dark:hover:border-gold hover:shadow-md'
@@ -893,13 +1138,19 @@
                }">
             <div class="flex items-start justify-between gap-1 mb-2">
               <span class="text-xl">${srv.icon}</span>
-              <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                unlocked
-                  ? 'bg-skyBg dark:bg-slate-800 text-navy dark:text-gold'
-                  : 'bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-slate-500'
-              }">
-                ${unlocked ? roleTag : '🔒 ' + roleTag}
-              </span>
+              <div class="flex items-center gap-1">
+                ${unlocked && userLv >= 2
+                  ? `<button type="button" onclick="toggleFavorite('${srv.title}', event)" aria-label="즐겨찾기 토글"
+                      class="text-xs px-1 rounded ${isFav ? 'text-amber-500' : 'text-gray-300 dark:text-slate-600 hover:text-amber-400'}">★</button>`
+                  : ''}
+                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                  unlocked
+                    ? 'bg-skyBg dark:bg-slate-800 text-navy dark:text-gold'
+                    : 'bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-slate-500'
+                }">
+                  ${unlocked ? roleTag : '🔒 ' + roleTag}
+                </span>
+              </div>
             </div>
             <div>
               <div class="font-bold text-xs sm:text-sm text-gray-900 dark:text-slate-100 leading-snug">${srv.title}</div>
@@ -910,19 +1161,31 @@
     }
 
     function shareKakaoDevotion() {
-      const text = `[다산교회 오늘의 말씀과 묵상]\n"너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요" (마 5:14)\n\n▶ 온라인예배 및 묵상 보기: https://www.youtube.com/@sda5239`;
+      const verseEl = document.getElementById('daily-verse-text');
+      const verse = verseEl ? verseEl.textContent.trim() : '"너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요" (마태복음 5:14)';
+      const text = `[다산교회 오늘의 말씀과 묵상]
+${verse}
+
+▶ 온라인예배 및 묵상 보기: https://www.youtube.com/@sda5239`;
       if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => {
-          alert('오늘의 말씀 묵상 카드가 클립보드에 복사되었습니다.\n카카오톡방에 붙여넣기(Ctrl+V)하여 바로 나누실 수 있습니다!');
+          alert('오늘의 말씀 묵상 카드가 클립보드에 복사되었습니다.
+카카오톡방에 붙여넣기하여 바로 나누실 수 있습니다!');
         });
       } else {
         alert(text);
       }
     }
 
+    loadFavorites();
     renderPersonalizedCard();
+    renderQuickHub();
+    mountAllModules();
     renderServices();
     loadPublicHubData();
+    window.addEventListener('resize', () => {
+      mountAllModules();
+    });
   </script>
 </body>
 </html>
