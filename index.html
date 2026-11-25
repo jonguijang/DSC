@@ -1,1 +1,2398 @@
 
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>제칠일안식일예수재림교 다산교회 | dsc.or.kr (v3.0)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            navy: '#2c3e50',
+            navyDark: '#1a252f',
+            gold: '#d4af37',
+            goldLight: '#f6ecc9',
+            skyBg: '#eef2f5',
+          },
+          fontFamily: {
+            sans: ['"Noto Sans KR"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; transition: background-color 0.2s ease, color 0.2s ease; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-skyBg text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+
+  <!-- 1. 상단 예배 라이브 & 실시간 카운트다운 바 -->
+  <div class="bg-navyDark dark:bg-black text-white text-xs sm:text-sm py-2 px-4 border-b border-white/10">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <a href="https://www.youtube.com/@sda5239" target="_blank" class="inline-flex items-center gap-1.5 font-semibold text-goldLight hover:text-gold transition">
+          <span>📺 온라인예배 (@sda5239)</span>
+        </a>
+        <span class="text-white/30">|</span>
+        <span id="next-worship-label" class="text-gray-200">다음 예배까지</span>
+        <span id="worship-countdown" class="font-mono font-bold text-gold bg-white/10 px-2 py-0.5 rounded">00:00:00</span>
+        <span id="api-status-dot" class="ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200">
+          🟡 연동 준비중
+        </span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span id="view-mode-badge" class="hidden md:inline-block text-[11px] px-2 py-0.5 rounded bg-white/10 text-goldLight font-mono">
+          VIEW: PC_DETAIL
+        </span>
+        <label for="role-preview" class="text-gray-300 hidden sm:inline">권한 미리보기:</label>
+        <select id="role-preview" onchange="changePreviewRole(this.value)" class="bg-navy dark:bg-slate-800 text-white border border-gray-600 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gold">
+          <option value="외부인">1. 외부인 (비로그인)</option>
+          <option value="다산교회">2. 다산교회 (성도)</option>
+          <option value="직원">3. 직원 (제직·반장)</option>
+          <option value="관리자">4. 관리자 (당회·행정)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 스마트 메인 헤더 -->
+  <header class="bg-white dark:bg-slate-900 shadow-sm sticky top-0 z-40 border-b border-gray-200 dark:border-slate-800 transition-colors">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-2">
+      <a href="#" class="flex items-center gap-2.5 shrink-0">
+        <div class="w-9 h-9 rounded-lg bg-navy dark:bg-slate-800 border border-transparent dark:border-gold/40 flex items-center justify-center text-gold font-bold text-lg shadow-sm">
+          다산
+        </div>
+        <div>
+          <div class="text-[11px] text-gray-500 dark:text-slate-400 leading-none">제칠일안식일예수재림교</div>
+          <div class="text-base sm:text-lg font-bold text-navy dark:text-white tracking-tight">
+            다산교회 <span class="text-xs font-normal text-gray-400 hidden sm:inline">dsc.or.kr · v3.0</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- 데스크톱 5대 핵심 내비게이션 -->
+      <nav class="hidden lg:flex items-center gap-6 text-sm font-semibold text-gray-700 dark:text-slate-200">
+        <a href="#guide-section" class="hover:text-navy dark:hover:text-gold transition">교회안내·선교</a>
+        <a href="#dashboard-widgets" class="hover:text-navy dark:hover:text-gold transition">말씀·담당표·일정</a>
+        <a href="#all-services" onclick="filterServices('신앙·편의')" class="hover:text-navy dark:hover:text-gold transition">신앙·소그룹</a>
+        <a href="#all-services" onclick="filterServices('예배·봉사')" class="hover:text-navy dark:hover:text-gold transition">예배·봉사</a>
+        <a href="#all-services" onclick="filterServices('행정·재정')" class="hover:text-navy dark:hover:text-gold transition">교회행정·Wiki</a>
+      </nav>
+
+      <!-- 우측 컨트롤: 밝음/어두움 토글 + 사용자 배지 + Google 로그인 -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <button id="theme-toggle-btn" onclick="toggleTheme()" aria-label="화면 테마 전환"
+          class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 text-xs font-semibold transition">
+          <span id="theme-icon">🌙</span>
+          <span id="theme-text">어두움</span>
+        </button>
+
+        <span id="user-badge" class="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300">
+          1. 외부인
+        </span>
+        <button id="auth-btn" onclick="handleAuthClick()" class="bg-navy hover:bg-navyDark dark:bg-gold dark:hover:bg-yellow-500 text-white dark:text-navyDark text-xs sm:text-sm font-semibold px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg transition shadow-sm">
+          Google 로그인
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 3. 히어로 배너 영역 -->
+  <section class="bg-gradient-to-br from-navy via-navy to-navyDark dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 text-white py-8 sm:py-12 px-4 border-b border-transparent dark:border-slate-800">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center">
+      <div class="lg:col-span-7 space-y-3 sm:space-y-4">
+        <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-3 py-1 text-xs text-goldLight">
+          <span>담임목사 임영운</span>
+          <span>•</span>
+          <span>경기도 남양주시 진건읍 고재로 197</span>
+        </div>
+        <h1 class="text-2xl sm:text-4xl font-bold leading-tight tracking-tight">
+          기도와 섬김으로 세워가는<br/>
+          <span class="text-gold">다산교회 통합 신앙·행정 포털</span>
+        </h1>
+        <p class="text-xs sm:text-base text-gray-200 leading-relaxed max-w-2xl">
+          안식일예배(토 10:00), 화요예배(화 19:30), 금요예배(금 19:30)와 함께 예배주보, 활동사진, 소그룹(9개반), 출석·달란트, 현장 체크리스트 및 행정·재정 서비스를 Google Workspace로 통합 제공합니다.
+        </p>
+
+        <!-- 오늘의 말씀(갓모닝 성경구절) & 카카오톡 공유 -->
+        <div class="bg-white/10 border border-white/15 rounded-2xl p-3.5 sm:p-4 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-bold text-gold">📖 오늘의 말씀 · 갓모닝 새벽묵상</span>
+            <button onclick="shareKakaoDevotion()" class="text-[11px] font-bold bg-gold text-navyDark px-2.5 py-1 rounded-lg hover:opacity-90 transition">
+              💬 묵상 복사·공유
+            </button>
+          </div>
+          <p id="daily-verse-text" class="text-xs sm:text-sm text-white leading-relaxed">
+            "너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요" (마태복음 5:14)
+          </p>
+        </div>
+      </div>
+
+      <!-- 개인화 카드 슬롯 (비로그인: 오시는 길/새가족 안내, 로그인: 나의 신앙 대시보드) -->
+      <div class="lg:col-span-5">
+        <div id="personalized-card" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl p-5 shadow-lg border border-gray-100 dark:border-slate-800 min-h-[210px] flex flex-col justify-between">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 메인 콘텐츠 컨테이너 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 sm:py-8 space-y-8 sm:space-y-10">
+
+    <!-- 4. 개인화 Quick 즐겨찾기(★) & 전자 신청서비스 링크 허브 (v3.0) -->
+    <section id="quick-hub-section" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div id="quick-favorites-slot" class="lg:col-span-6 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800"></div>
+      <div id="quick-links-slot" class="lg:col-span-6 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800"></div>
+    </section>
+
+    <!-- 5. 대시보드 위젯: 주간 담당표(실명 원천차단 검증) + 교회 캘린더 + 활동사진 갤러리 -->
+    <section id="dashboard-widgets" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 주간 담당표 모듈 슬롯 -->
+        <div id="weekly-duty-slot" class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800"></div>
+
+        <!-- 교회 캘린더 & 예배주보 빠른 열람 -->
+        <div class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800 flex flex-col justify-between space-y-4">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="font-bold text-base text-navy dark:text-white">📅 다산교회 주요 일정</h2>
+              <button onclick="openBulletinModal()" class="text-xs font-bold text-navy dark:text-gold bg-skyBg dark:bg-slate-800 px-2.5 py-1 rounded-lg hover:opacity-90 transition">
+                📄 금주 주보 열람
+              </button>
+            </div>
+            <ul id="calendar-event-list" class="space-y-2.5 text-xs sm:text-sm">
+              <li class="flex items-start justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
+                <div>
+                  <span class="font-bold text-navy dark:text-slate-100">안식일학교 및 대예배</span>
+                  <p class="text-xs text-gray-500 dark:text-slate-400">다산교회 본당 · 매주 토요일</p>
+                </div>
+                <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">토 09:30 / 10:00</span>
+              </li>
+              <li class="flex items-start justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
+                <div>
+                  <span class="font-bold text-navy dark:text-slate-100">화요기도·말씀예배</span>
+                  <p class="text-xs text-gray-500 dark:text-slate-400">다산교회 본당 · 매주 화요일</p>
+                </div>
+                <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">화 19:30</span>
+              </li>
+              <li class="flex items-start justify-between last:border-none">
+                <div>
+                  <span class="font-bold text-navy dark:text-slate-100">금요저녁예배</span>
+                  <p class="text-xs text-gray-500 dark:text-slate-400">다산교회 본당 · 매주 금요일</p>
+                </div>
+                <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">금 19:30</span>
+              </li>
+            </ul>
+          </div>
+          <div class="pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs">
+            <span class="text-gray-500 dark:text-slate-400">온라인예배 &amp; 갓모닝 묵상</span>
+            <a href="https://www.youtube.com/@sda5239" target="_blank" class="font-bold text-navy dark:text-gold hover:underline">
+              유튜브 채널(@sda5239) →
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 활동사진 갤러리 스트립 -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold text-base text-navy dark:text-white">📸 최근 활동사진 앨범</h2>
+          <a href="https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud" target="_blank" class="text-xs font-semibold text-navy dark:text-gold hover:underline">
+            전체 갤러리 폴더 →
+          </a>
+        </div>
+        <div id="gallery-strip-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="col-span-full text-center py-6 text-xs text-gray-500 dark:text-slate-400">
+            공유 드라이브 [02_활동사진_갤러리]에 행사별 폴더(예: 2026_안식일학교)를 생성하면 자동으로 앨범이 표시됩니다.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. 대외 안내관 탭 (7대 헌금 · 패스파인더 · 어드벤처러) -->
+    <section id="guide-section" class="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-200 dark:border-slate-800">
+      <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 dark:border-slate-800 pb-4">
+        <button id="tab-offerings" onclick="switchGuideTab('offerings')" class="bg-navy dark:bg-gold text-white dark:text-navyDark border-navy dark:border-gold text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
+          💛 헌금설명 (7대 헌금)
+        </button>
+        <button id="tab-pathfinder" onclick="switchGuideTab('pathfinder')" class="bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
+          🏕️ 패스파인더 (Pathfinder)
+        </button>
+        <button id="tab-adventurer" onclick="switchGuideTab('adventurer')" class="bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
+          🌱 어드벤처러 (Adventurer)
+        </button>
+      </div>
+
+      <!-- 탭 1: 7대 헌금 안내 -->
+      <div id="panel-offerings" class="pt-6 space-y-4">
+        <div>
+          <span class="inline-block bg-goldLight dark:bg-amber-900/40 text-amber-900 dark:text-gold text-xs font-bold px-3 py-1 rounded-full">성경적 청지기 직분 안내</span>
+          <h3 class="text-xl font-bold text-gray-900 dark:text-white mt-2">다산교회 7대 헌금 안내</h3>
+          <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-300 mt-1">
+            하나님께서 주신 은혜와 복에 감사하며 선교·구제·교회 운영에 동참하는 7가지 헌금의 의미와 사용 목적입니다.
+          </p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs sm:text-sm">
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">1. 십일조</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">소득의 10분의 1을 하나님께 드리는 성별된 헌금으로 교역자 사역과 복음 전파를 지원합니다.</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">2. 월정헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">매월 정성을 다해 드리는 헌금으로 교회 예배·교육·선교 사역의 기반이 됩니다.</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">3. 도르가헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">어려운 이웃과 취약계층을 돕는 구제·사랑 실천 사역에 사용됩니다.</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">4. 교회감사헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">일상과 신앙의 은혜에 감사하며 교회 공동체 사역을 섬기는 헌금입니다.</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">5. 투자헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">하나님과 동역하는 마음으로 작정·실천하는 선교 투자 헌금입니다.</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="font-bold text-navy dark:text-gold mb-1">6. 생일감사헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">생명의 은혜와 한 해를 인도하신 하나님께 감사하며 드리는 헌금입니다.</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 sm:col-span-2">
+            <div class="font-bold text-navy dark:text-gold mb-1">7. 교회특별헌금</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">전도집회, 시설 정비, 특별 선교 및 지역사회 섬김 등 목적 사역을 위해 드리는 헌금입니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 2: 패스파인더 설명 -->
+      <div id="panel-pathfinder" class="pt-6 hidden">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+          <div class="md:col-span-2 space-y-3">
+            <span class="inline-block bg-navy text-white text-xs font-bold px-3 py-1 rounded-full">청소년 신앙·봉사·탐험 클럽 (초5 ~ 고등)</span>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white">다산 패스파인더 (Pathfinder Club)</h3>
+            <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
+              패스파인더는 청소년들이 예수님을 구주로 영접하고, 자연 탐험과 기능장 수련, 지역사회 봉사 활동을 통해 균형 잡힌 리더로 성장하도록 돕는 청소년 클럽입니다.
+            </p>
+            <ul class="text-xs sm:text-sm text-gray-700 dark:text-slate-300 space-y-1.5 pt-2">
+              <li>• <strong>핵심 활동:</strong> 성경 탐구, 야외 캠핑·하이킹, 기능장(Honor) 배지 취득, 봉사 캠페인</li>
+              <li>• <strong>공동체 성장:</strong> 협동심과 책임감을 기르며 또래 및 지도자와 함께하는 신앙 여정</li>
+            </ul>
+          </div>
+          <div class="bg-skyBg dark:bg-slate-800 rounded-xl p-5 border border-gray-200 dark:border-slate-700 space-y-3">
+            <div class="font-bold text-navy dark:text-gold text-sm">패스파인더 활동 갤러리</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">청소년 클럽 모임 및 탐험·봉사 사진을 공유 드라이브 갤러리에서 확인하세요.</p>
+            <a href="https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud" target="_blank" class="block text-center bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-semibold py-2.5 rounded-lg hover:opacity-90 transition">
+              📸 활동사진 갤러리 바로가기
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 탭 3: 어드벤처러 설명 -->
+      <div id="panel-adventurer" class="pt-6 hidden">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+          <div class="md:col-span-2 space-y-3">
+            <span class="inline-block bg-gold text-navyDark text-xs font-bold px-3 py-1 rounded-full">어린이·가족 신앙 프로그램 (유치부 ~ 초4)</span>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white">다산 어드벤처러 (Adventurer Club)</h3>
+            <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
+              어드벤처러는 어린이들이 부모님과 함께 예수님을 닮아가는 기쁨을 배우는 체험형 신앙·인성 클럽입니다. 가정과 교회가 협력하여 아이들의 눈높이에 맞춘 성경 이야기, 창의 만들기, 가족 캠프 활동을 진행합니다.
+            </p>
+            <ul class="text-xs sm:text-sm text-gray-700 dark:text-slate-300 space-y-1.5 pt-2">
+              <li>• <strong>4대 성장 영역:</strong> 나의 하나님(영성), 나 자신(자존감), 나의 가족(사랑), 나의 세상(나눔)</li>
+              <li>• <strong>가족 참여형:</strong> 부모님과 함께하는 주말 체험 학습 및 어드벤처러 별장 수여식</li>
+            </ul>
+          </div>
+          <div class="bg-skyBg dark:bg-slate-800 rounded-xl p-5 border border-gray-200 dark:border-slate-700 space-y-3">
+            <div class="font-bold text-navy dark:text-gold text-sm">어린이부·어드벤처러 안내</div>
+            <p class="text-xs text-gray-600 dark:text-slate-300">안식일학교 어린이부 예배 후 정기 프로그램이 운영됩니다.</p>
+            <a href="#dashboard-widgets" class="block text-center bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-semibold py-2.5 rounded-lg hover:opacity-90 transition">
+              📅 안식일학교 일정 확인하기
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. 30대 통합 서비스 전체 메뉴 맵 -->
+    <section id="all-services" class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="text-lg sm:text-xl font-bold text-navy dark:text-white">🧩 30대 통합 신앙·봉사·행정 서비스</h2>
+          <p class="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+            권한 등급에 따라 이용 가능한 메뉴가 표시되며, ★ 버튼으로 개인 Quick 즐겨찾기에 추가할 수 있습니다.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-1.5" id="category-filter-bar">
+          <button onclick="filterServices('ALL')" data-cat="ALL" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-navy text-white dark:bg-gold dark:text-navyDark">전체 (30)</button>
+          <button onclick="filterServices('대외·선교')" data-cat="대외·선교" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">대외·선교 (9)</button>
+          <button onclick="filterServices('신앙·편의')" data-cat="신앙·편의" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">신앙·편의 (8)</button>
+          <button onclick="filterServices('예배·봉사')" data-cat="예배·봉사" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">예배·봉사 (5)</button>
+          <button onclick="filterServices('행정·재정')" data-cat="행정·재정" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">행정·재정·Wiki (8)</button>
+        </div>
+      </div>
+
+      <div id="services-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4"></div>
+    </section>
+
+  </main>
+
+  <!-- 8. 푸터 -->
+  <footer class="bg-navyDark dark:bg-black text-gray-300 text-xs py-6 px-4 border-t border-white/10 mt-8">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div>
+        <strong class="text-white">제칠일안식일예수재림교 다산교회</strong> · 경기도 남양주시 진건읍 고재로 197
+      </div>
+      <div class="text-gray-400">
+        dsc.or.kr · Google Workspace 통합 포털 (v3.0 1차 중간 배포)
+      </div>
+    </div>
+  </footer>
+
+  <!-- 9. 서비스 조회·신청 모달 -->
+  <div id="service-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-[1px] flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-gray-200 dark:border-slate-700">
+      <div class="sticky top-0 bg-white dark:bg-slate-900 px-5 py-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between z-10">
+        <div class="flex items-center gap-2.5">
+          <span id="modal-icon" class="text-2xl">📌</span>
+          <div>
+            <h3 id="modal-title" class="font-bold text-base text-navy dark:text-white">서비스 제목</h3>
+            <p id="modal-subtitle" class="text-[11px] text-gray-500 dark:text-slate-400">연동 정보</p>
+          </div>
+        </div>
+        <button onclick="closeServiceModal()" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl font-bold px-2">✕</button>
+      </div>
+      <div id="modal-body" class="p-5 space-y-4 text-xs sm:text-sm"></div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================
+    // 0. 밝음 / 어두움 테마 제어 (안전 예외 처리 적용)
+    // =========================================================
+    function applyTheme(theme) {
+      const html = document.documentElement;
+      const icon = document.getElementById('theme-icon');
+      const text = document.getElementById('theme-text');
+      if (theme === 'dark') {
+        html.classList.add('dark');
+        if (icon) icon.textContent = '☀️';
+        if (text) text.textContent = '밝음';
+      } else {
+        html.classList.remove('dark');
+        if (icon) icon.textContent = '🌙';
+        if (text) text.textContent = '어두움';
+      }
+      try { localStorage.setItem('dsc_theme', theme); } catch (e) {}
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      applyTheme(isDark ? 'light' : 'dark');
+    }
+
+    (function initTheme() {
+      let saved = 'light';
+      try { saved = localStorage.getItem('dsc_theme') || 'light'; } catch (e) {}
+      applyTheme(saved);
+    })();
+
+    // =========================================================
+    // 1. 시스템 설정 (Apps Script 웹 앱 URL 및 공유 드라이브 폴더 매핑)
+    // =========================================================
+    const CONFIG = {
+      API_URL: 'https://script.google.com/macros/s/AKfycbyeYkLPvjdToxRf8TUnOSPi3qN2osTse-GMi0ZviPebfnNbRcyJLTP9CNky3l3gV0L8/exec',
+      GOOGLE_CLIENT_ID: '214036144218-7rk41ek615sa24odk1hgn9cohv1a9nae.apps.googleusercontent.com',
+      ROLE_LEVEL: { '외부인': 1, '다산교회': 2, '직원': 3, '관리자': 4 },
+      FOLDERS: {
+        BULLETIN: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
+        GALLERY: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
+        MANUAL: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
+        VOUCHER_RECEIPT: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud'
+      },
+      DEFAULT_SMALL_GROUPS: [
+        { code: 'GRP-01', name: '겸손반', leader: '', location: '본당', active: true },
+        { code: 'GRP-02', name: '사랑반', leader: '', location: '본당', active: true },
+        { code: 'GRP-03', name: '온유반', leader: '', location: '교육관', active: true },
+        { code: 'GRP-04', name: '믿음반', leader: '', location: '교육관', active: true },
+        { code: 'GRP-05', name: '소망반', leader: '', location: '교육관', active: true },
+        { code: 'GRP-06', name: '기쁨반', leader: '', location: '소그룹실', active: true },
+        { code: 'GRP-07', name: '평화반', leader: '', location: '소그룹실', active: true },
+        { code: 'GRP-08', name: '은혜반', leader: '', location: '소그룹실', active: true },
+        { code: 'GRP-09', name: '진리반', leader: '', location: '소그룹실', active: true }
+      ],
+      QUICK_HUB_LINKS: [
+        { title: '전자결재_지불결의서', desc: '02_결재_지불결의서 기안·결재', minRole: 3, icon: '🧾', url: 'https://drive.google.com' },
+        { title: '전자신청_기부금영수증', desc: '03_신청_기부금영수증 신청', minRole: 2, icon: '📄', url: 'https://drive.google.com' },
+        { title: '전자신청_제안함', desc: '04_신청_제안함 접수·건의', minRole: 2, icon: '💡', url: 'https://drive.google.com' },
+        { title: '전자투표_직원회안건', desc: '05_투표_직원회안건 직원 투표', minRole: 3, icon: '🗳️', url: 'https://drive.google.com' }
+      ]
+    };
+
+    const ROLE_LEVEL = CONFIG.ROLE_LEVEL;
+    let currentRole = '외부인';
+    let currentCategory = 'ALL';
+    let currentIdToken = '';
+    let currentUserProfile = null;
+    let hubCache = { bulletins: [], galleries: [], events: [], duties: [], smallGroups: [] };
+    let favoriteIds = [];
+
+    function loadFavorites() {
+      try {
+        const raw = localStorage.getItem('dsc_quick_favorites');
+        favoriteIds = raw ? JSON.parse(raw) : ['헌금내역 조회', '달란트 관리', '예배주보 (Drive)'];
+      } catch (e) {
+        favoriteIds = ['헌금내역 조회', '달란트 관리', '예배주보 (Drive)'];
+      }
+    }
+
+    function saveFavorites() {
+      try { localStorage.setItem('dsc_quick_favorites', JSON.stringify(favoriteIds)); } catch (e) {}
+    }
+
+    function toggleFavorite(title, ev) {
+      if (ev) ev.stopPropagation();
+      if (ROLE_LEVEL[currentRole] < 2) {
+        alert('Quick 즐겨찾기(★) 저장은 성도(2. 다산교회) 이상 로그인 후 이용하실 수 있습니다.');
+        return;
+      }
+      const idx = favoriteIds.indexOf(title);
+      if (idx >= 0) favoriteIds.splice(idx, 1);
+      else favoriteIds.push(title);
+      saveFavorites();
+      renderQuickHub();
+      renderServices();
+    }
+
+    // =========================================================
+    // 2. BaseModule 추상 클래스 및 듀얼 뷰(PC_DETAIL / MOBILE_COMPACT)
+    // =========================================================
+    function getViewMode() {
+      return window.innerWidth < 768 ? 'MOBILE_COMPACT' : 'PC_DETAIL';
+    }
+
+    class BaseModule {
+      constructor({ menuId, title, minRole = 1, viewMode = null, container }) {
+        this.menuId = menuId;
+        this.title = title;
+        this.minRole = minRole;
+        this.viewMode = viewMode || getViewMode();
+        this.container = typeof container === 'string' ? document.querySelector(container) : container;
+      }
+      async fetchData() { return {}; }
+      renderDesktop(data) { return ''; }
+      renderMobile(data) { return this.renderDesktop(data); }
+      renderBlocked() {
+        return `<div class="p-4 rounded-xl bg-gray-50 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 text-xs text-gray-500 dark:text-slate-400">
+          🔒 [${this.title}] 메뉴는 로그인 후 열람 가능합니다.
+        </div>`;
+      }
+      async mount() {
+        if (!this.container) return;
+        this.viewMode = getViewMode();
+        if (ROLE_LEVEL[currentRole] < this.minRole) {
+          this.container.innerHTML = this.renderBlocked();
+          return;
+        }
+        const data = await this.fetchData();
+        this.container.innerHTML = this.viewMode === 'MOBILE_COMPACT'
+          ? this.renderMobile(data)
+          : this.renderDesktop(data);
+      }
+    }
+
+    // =========================================================
+    // 3. Apps Script API 공통 호출 엔진 및 외부인 성명 원천 차단 헬퍼
+    // =========================================================
+    async function callApi(action, payload = {}) {
+      const res = await fetch(CONFIG.API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: action,
+          idToken: currentIdToken,
+          rolePreview: currentRole,
+          payload: payload
+        })
+      });
+      return await res.json();
+    }
+
+    // 외부인(비로그인) 또는 서버 미인증 상태에서는 성도 실명을 절대 노출하지 않음
+    function sanitizeMemberName(rawName) {
+      const hasVerifiedSession = Boolean(currentIdToken) && ROLE_LEVEL[currentRole] >= 2;
+      if (!hasVerifiedSession) {
+        return '로그인 후 열람 가능';
+      }
+      return rawName || '배정 예정';
+    }
+
+    function applyFallbackHubData() {
+      const nowIso = new Date().toISOString();
+      hubCache = {
+        bulletins: [
+          {
+            name: '다산교회 주보 폴더 (Google Drive)',
+            updated: nowIso,
+            url: CONFIG.FOLDERS.BULLETIN
+          }
+        ],
+        galleries: [],
+        events: [
+          {
+            title: '안식일학교 및 대예배',
+            location: '다산교회 본당 · 매주 토요일',
+            start: nowIso
+          },
+          {
+            title: '화요기도·말씀예배',
+            location: '다산교회 본당 · 매주 화요일',
+            start: nowIso
+          },
+          {
+            title: '금요저녁예배',
+            location: '다산교회 본당 · 매주 금요일',
+            start: nowIso
+          }
+        ],
+        duties: [],
+        smallGroups: CONFIG.DEFAULT_SMALL_GROUPS.slice()
+      };
+      renderGalleryStrip(hubCache.galleries);
+      mountAllModules();
+    }
+
+    async function loadPublicHubData() {
+      const statusDot = document.getElementById('api-status-dot');
+      if (!CONFIG.API_URL || CONFIG.API_URL.includes('YOUR_')) {
+        if (statusDot) {
+          statusDot.innerHTML = '🟡 API URL 미설정(기본 허브)';
+          statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200';
+        }
+        applyFallbackHubData();
+        return;
+      }
+
+      let timedOut = false;
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => {
+          timedOut = true;
+          controller.abort('timeout_12000ms');
+        }, 12000);
+        const res = await fetch(CONFIG.API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'getPublicHubData',
+            idToken: currentIdToken,
+            rolePreview: currentRole,
+            payload: {}
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+
+        const text = await res.text();
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch (parseErr) {
+          throw new Error('Apps Script 응답이 JSON 형식이 아닙니다. 웹 앱 배포 권한(액세스 권한: 모든 사용자)을 확인하세요.');
+        }
+
+        if (data && data.ok) {
+          const apiGroups = (data.smallGroups && data.smallGroups.length)
+            ? data.smallGroups
+            : ((hubCache.smallGroups && hubCache.smallGroups.length) ? hubCache.smallGroups : CONFIG.DEFAULT_SMALL_GROUPS.slice());
+          hubCache = {
+            bulletins: data.bulletins || [],
+            galleries: data.galleries || [],
+            events: data.events || [],
+            duties: data.duties || [],
+            smallGroups: apiGroups
+          };
+          if (statusDot) {
+            statusDot.innerHTML = '🟢 실시간 연동됨';
+            statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300';
+          }
+          renderGalleryStrip(hubCache.galleries);
+          renderCalendarEvents(hubCache.events);
+          mountAllModules();
+        } else {
+          if (statusDot) {
+            statusDot.innerHTML = '🟡 API 응답 대기(기본 허브)';
+            statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200';
+          }
+          applyFallbackHubData();
+        }
+      } catch (err) {
+        if (timedOut || (err && err.name === 'AbortError')) {
+          console.warn('API 응답 지연(12s)으로 기본 허브 모드로 전환했습니다.');
+        } else {
+          console.error('API 연동 오류:', err);
+        }
+        if (statusDot) {
+          statusDot.innerHTML = '🟡 기본 허브 모드(API 지연/점검)';
+          statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200';
+        }
+        applyFallbackHubData();
+      }
+    }
+
+    // =========================================================
+    // 4. 주간 담당표(WeeklyDutyModule) & 업무 모듈
+    // =========================================================
+    class WeeklyDutyModule extends BaseModule {
+      async fetchData() {
+        const sampleDuties = [
+          { period: '이번 주', role: '대예배 사회·기도·설교', member: '안식일 순서자' },
+          { period: '이번 주', role: '시무장로 · 시무집사', member: '당번 장로·집사' },
+          { period: '이번 주', role: '식사당번 · 설거지 · 주차', member: '애찬·주차 봉사조' },
+          { period: '다음 주', role: '대예배 사회·기도·설교', member: '차주 순서자' },
+          { period: '다음 주', role: '시무장로 · 시무집사', member: '차주 장로·집사' },
+          { period: '다음 주', role: '식사당번 · 설거지 · 주차', member: '차주 봉사조' }
+        ];
+        const rows = (hubCache.duties && hubCache.duties.length) ? hubCache.duties : sampleDuties;
+        return rows.map(r => ({
+          period: r.period || '이번 주',
+          role: r.role || '담당 영역',
+          member: sanitizeMemberName(r.member)
+        }));
+      }
+
+      renderBlocked() {
+        return `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-base text-navy dark:text-white">📋 이번 주 / 다음 주 담당표</h2>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
+              실명 보호 차단중
+            </span>
+          </div>
+          <div class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 space-y-2">
+            <p class="text-xs sm:text-sm font-semibold text-navy dark:text-gold">
+              외부인(비로그인) 접근 시 성도 실명 노출이 원천 차단됩니다.
+            </p>
+            <p class="text-xs text-gray-600 dark:text-slate-300">
+              예배·시무·식사·설거지·주차 담당표 상세 열람은 다산교회 성도 계정 로그인 후 이용하실 수 있습니다.
+            </p>
+          </div>`;
+      }
+
+      renderDesktop(rows) {
+        const hasVerifiedSession = Boolean(currentIdToken) && ROLE_LEVEL[currentRole] >= 2;
+        return `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-base text-navy dark:text-white">📋 이번 주 / 다음 주 담당표 (PC_DETAIL)</h2>
+            <span class="text-[11px] px-2 py-0.5 rounded ${hasVerifiedSession ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'} font-semibold">
+              ${hasVerifiedSession ? '실명 열람 인증됨' : '미인증: 성명 마스킹 적용'}
+            </span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+              <thead>
+                <tr class="bg-skyBg dark:bg-slate-800 text-navy dark:text-slate-200 border-b border-gray-200 dark:border-slate-700">
+                  <th class="p-2.5 text-left font-bold">구분</th>
+                  <th class="p-2.5 text-left font-bold">담당 영역 (예배·시무·식사·설거지·주차)</th>
+                  <th class="p-2.5 text-left font-bold">담당자</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map(r => `
+                  <tr class="border-b border-gray-100 dark:border-slate-800 last:border-none">
+                    <td class="p-2.5 font-semibold text-navy dark:text-gold whitespace-nowrap">${r.period}</td>
+                    <td class="p-2.5 text-gray-700 dark:text-slate-300">${r.role}</td>
+                    <td class="p-2.5 font-medium text-gray-900 dark:text-slate-100">${r.member}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`;
+      }
+
+      renderMobile(rows) {
+        const thisWeek = rows.filter(r => r.period === '이번 주').slice(0, 3);
+        return `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-sm text-navy dark:text-white">📋 금주 핵심 담당 요약 (MOBILE_COMPACT)</h2>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 text-navy dark:text-gold">간략뷰</span>
+          </div>
+          <div class="space-y-2">
+            ${thisWeek.map(r => `
+              <div class="p-3 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                <div class="text-xs font-bold text-navy dark:text-slate-100">${r.role}</div>
+                <div class="text-xs text-gray-600 dark:text-slate-300 shrink-0">${r.member}</div>
+              </div>
+            `).join('')}
+          </div>`;
+      }
+    }
+
+    // 다락방 ID 신청/비번초기화 및 매뉴얼 모듈
+    class DarakbangModule extends BaseModule {
+      constructor(opts = {}) {
+        super({
+          menuId: opts.menuId || 'DARAKBANG_ID',
+          title: opts.title || '다락방 ID·매뉴얼',
+          minRole: opts.minRole || 2,
+          viewMode: opts.viewMode || getViewMode(),
+          container: opts.container || null
+        });
+      }
+
+      async fetchData() {
+        const defaultRequests = [
+          { date: '2026-11-20', type: '신규발급', contact: '010-****-1234', status: '발급완료' },
+          { date: '2026-11-23', type: '비번초기화', contact: '010-****-5678', status: '처리중' }
+        ];
+        if (!currentIdToken) {
+          return { requests: defaultRequests, manualUrl: CONFIG.FOLDERS.MANUAL, isLive: false };
+        }
+        try {
+          const res = await callApi('querySheet', { sheetName: 'Darakbang_Requests' });
+          if (res && res.ok && Array.isArray(res.rows) && res.rows.length) {
+            return {
+              requests: res.rows.slice(0, 10).map(r => ({
+                date: r['요청일'] || r['일자'] || r['date'] || '2026-11-25',
+                type: r['요청구분(신규발급/비번초기화)'] || r['요청구분'] || r['type'] || '신규발급',
+                contact: r['연락처'] || r['contact'] || '인증됨',
+                status: r['처리상태'] || r['status'] || '접수완료'
+              })),
+              manualUrl: CONFIG.FOLDERS.MANUAL,
+              isLive: true
+            };
+          }
+        } catch (err) {
+          console.error('DarakbangModule fetchData error:', err);
+        }
+        return { requests: defaultRequests, manualUrl: CONFIG.FOLDERS.MANUAL, isLive: false };
+      }
+
+      renderFormHtml() {
+        return `
+          <form onsubmit="handleDarakbangSubmit(event)" class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-navy dark:text-gold text-xs">🔑 다락방 신규 ID 발급 / 비밀번호 초기화 신청</span>
+              <a href="${CONFIG.FOLDERS.MANUAL}" target="_blank" class="text-[11px] font-bold text-navy dark:text-gold underline">
+                📘 다락방 사용 매뉴얼 열람
+              </a>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">요청구분</label>
+                <select name="요청구분(신규발급/비번초기화)" required class="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                  <option value="신규발급">신규발급</option>
+                  <option value="비번초기화">비번초기화</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">연락처 (휴대폰)</label>
+                <input name="연락처" required placeholder="예: 010-1234-5678" class="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+              </div>
+            </div>
+            <button type="submit" class="bg-navy dark:bg-gold text-white dark:text-navyDark font-bold text-xs px-4 py-2 rounded-lg hover:opacity-90 transition">
+              다락방 신청 제출하기
+            </button>
+          </form>
+        `;
+      }
+
+      renderDesktop(data) {
+        const rows = data.requests || [];
+        return `
+          <div class="space-y-4">
+            ${this.renderFormHtml()}
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-xs text-navy dark:text-white">📌 최근 다락방 신청 처리 현황</h4>
+              <span class="text-[11px] text-gray-500 dark:text-slate-400">${data.isLive ? '실시간 DB 연동' : '안내 샘플 / 로그인 시 본인 내역 연동'}</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs border-collapse">
+                <thead>
+                  <tr class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                    <th class="p-2 text-left font-bold">신청일</th>
+                    <th class="p-2 text-left font-bold">구분</th>
+                    <th class="p-2 text-left font-bold">연락처</th>
+                    <th class="p-2 text-left font-bold">처리상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map(r => `
+                    <tr class="border-b border-gray-100 dark:border-slate-800">
+                      <td class="p-2">${r.date}</td>
+                      <td class="p-2 font-semibold text-navy dark:text-gold">${r.type}</td>
+                      <td class="p-2">${r.contact}</td>
+                      <td class="p-2"><span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 font-semibold">${r.status}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      renderMobile(data) {
+        const rows = (data.requests || []).slice(0, 2);
+        return `
+          <div class="space-y-3">
+            ${this.renderFormHtml()}
+            <div class="space-y-2">
+              ${rows.map(r => `
+                <div class="p-3 rounded-xl bg-skyBg/60 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                  <div>
+                    <span class="font-bold text-navy dark:text-gold">${r.type}</span>
+                    <span class="text-gray-500 dark:text-slate-400 ml-1.5">${r.date}</span>
+                  </div>
+                  <span class="font-semibold px-2 py-0.5 rounded bg-white dark:bg-slate-900">${r.status}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // 본인 전용 헌금내역 조회 모듈
+    class OfferingsModule extends BaseModule {
+      constructor(opts = {}) {
+        super({
+          menuId: opts.menuId || 'OFFERINGS_SELF',
+          title: opts.title || '헌금내역 조회',
+          minRole: opts.minRole || 2,
+          viewMode: opts.viewMode || getViewMode(),
+          container: opts.container || null
+        });
+      }
+
+      async fetchData() {
+        const sampleItems = [
+          { date: '2026-11-07', kind: '십일조', amount: '본인 인증 후 조회', note: '안식일 헌금' },
+          { date: '2026-11-07', kind: '월정헌금', amount: '본인 인증 후 조회', note: '11월 정기 헌금' },
+          { date: '2026-11-14', kind: '도르가헌금', amount: '본인 인증 후 조회', note: '구제·봉사 헌금' }
+        ];
+        if (!currentIdToken) {
+          return { items: sampleItems, totalText: 'OAuth 로그인 필요', isVerifiedSelf: false };
+        }
+        try {
+          const res = await callApi('querySheet', { sheetName: 'Offerings_Log', selfOnly: true });
+          if (res && res.ok && Array.isArray(res.rows)) {
+            const rows = res.rows.map(r => ({
+              date: r['일자'] || r['납부일'] || r['date'] || '-',
+              kind: r['헌금종류'] || r['구분'] || r['kind'] || '헌금',
+              amount: r['금액'] !== undefined ? `${Number(r['금액'] || 0).toLocaleString()}원` : '-',
+              note: r['비고'] || r['적요'] || ''
+            }));
+            const sumVal = res.rows.reduce((acc, r) => acc + (Number(r['금액']) || 0), 0);
+            return {
+              items: rows.length ? rows : [],
+              totalText: `${sumVal.toLocaleString()}원`,
+              isVerifiedSelf: true
+            };
+          }
+        } catch (err) {
+          console.error('OfferingsModule fetchData error:', err);
+        }
+        return { items: sampleItems, totalText: '조회 대기', isVerifiedSelf: false };
+      }
+
+      renderDesktop(data) {
+        const hasVerifiedSelf = Boolean(currentIdToken) && data.isVerifiedSelf;
+        return `
+          <div class="space-y-4">
+            <div class="p-3.5 rounded-xl ${hasVerifiedSelf ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800' : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'} border flex flex-wrap items-center justify-between gap-2">
+              <div class="text-xs">
+                <strong class="text-navy dark:text-white">🔒 본인 전용 헌금내역 격리 정책:</strong>
+                <span class="text-gray-600 dark:text-slate-300 ml-1">
+                  ${hasVerifiedSelf
+                    ? 'Google OAuth 본인 계정 기준으로 격리 조회된 내역입니다.'
+                    : '미리보기 모드에서는 실제 헌금 금액이 노출되지 않으며, Google OAuth 실계정 인증 후 본인 내역만 조회됩니다.'}
+                </span>
+              </div>
+              <span class="text-xs font-bold px-2.5 py-1 rounded bg-white dark:bg-slate-900 text-navy dark:text-gold">
+                누계: ${data.totalText}
+              </span>
+            </div>
+
+            ${data.items.length ? `
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs border-collapse">
+                  <thead>
+                    <tr class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                      <th class="p-2 text-left font-bold">일자</th>
+                      <th class="p-2 text-left font-bold">헌금구분</th>
+                      <th class="p-2 text-right font-bold">금액</th>
+                      <th class="p-2 text-left font-bold">비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${data.items.map(it => `
+                      <tr class="border-b border-gray-100 dark:border-slate-800">
+                        <td class="p-2">${it.date}</td>
+                        <td class="p-2 font-semibold text-navy dark:text-gold">${it.kind}</td>
+                        <td class="p-2 text-right font-bold">${it.amount}</td>
+                        <td class="p-2 text-gray-500 dark:text-slate-400">${it.note}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : `<div class="p-4 text-center text-xs text-gray-500 dark:text-slate-400">조회된 본인 헌금 내역이 없습니다.</div>`}
+          </div>
+        `;
+      }
+
+      renderMobile(data) {
+        const items = (data.items || []).slice(0, 3);
+        return `
+          <div class="space-y-2.5">
+            <div class="p-3 rounded-xl bg-skyBg/70 dark:bg-slate-800 flex items-center justify-between text-xs">
+              <span class="font-bold text-navy dark:text-white">🔒 본인 헌금 누계</span>
+              <span class="font-bold text-navy dark:text-gold">${data.totalText}</span>
+            </div>
+            ${items.map(it => `
+              <div class="p-3 rounded-xl border border-gray-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                <div>
+                  <div class="font-bold text-navy dark:text-gold">${it.kind}</div>
+                  <div class="text-[11px] text-gray-500 dark:text-slate-400">${it.date}</div>
+                </div>
+                <div class="font-bold">${it.amount}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+    }
+
+    // 서적신청조회 모듈
+    class BookRequestModule extends BaseModule {
+      constructor(opts = {}) {
+        super({
+          menuId: opts.menuId || 'BOOK_REQUEST',
+          title: opts.title || '서적신청조회',
+          minRole: opts.minRole || 2,
+          viewMode: opts.viewMode || getViewMode(),
+          container: opts.container || null
+        });
+      }
+
+      async fetchData() {
+        const sampleBooks = [
+          { book: '2027년 1기 안식일학교 교과(장년용)', qty: 1, payStatus: '입금확인', deliveryStatus: '배부대기' },
+          { book: '소망의 빛(큰글씨판)', qty: 2, payStatus: '입금대기', deliveryStatus: '접수완료' }
+        ];
+        if (!currentIdToken) {
+          return { books: sampleBooks, isLive: false };
+        }
+        try {
+          const res = await callApi('querySheet', { sheetName: 'Book_Requests' });
+          if (res && res.ok && Array.isArray(res.rows) && res.rows.length) {
+            return {
+              books: res.rows.slice(0, 12).map(r => ({
+                book: r['도서명/교과구분'] || r['도서명'] || r['book'] || '신청 도서',
+                qty: Number(r['수량'] || r['qty'] || 1),
+                payStatus: r['입금상태'] || r['payStatus'] || '확인중',
+                deliveryStatus: r['배부상태'] || r['deliveryStatus'] || '접수완료'
+              })),
+              isLive: true
+            };
+          }
+        } catch (err) {
+          console.error('BookRequestModule fetchData error:', err);
+        }
+        return { books: sampleBooks, isLive: false };
+      }
+
+      renderFormHtml() {
+        return `
+          <form onsubmit="handleBookRequestSubmit(event)" class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 space-y-3">
+            <div class="font-bold text-navy dark:text-gold text-xs">📚 교과책 및 신앙서적 공동구매 신청</div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">도서명 / 교과구분</label>
+                <input name="도서명/교과구분" required placeholder="예: 2027년 1기 안식일학교 교과" class="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">수량</label>
+                <input type="number" name="수량" min="1" value="1" required class="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+              </div>
+            </div>
+            <button type="submit" class="bg-navy dark:bg-gold text-white dark:text-navyDark font-bold text-xs px-4 py-2 rounded-lg hover:opacity-90 transition">
+              서적 신청 등록하기
+            </button>
+          </form>
+        `;
+      }
+
+      renderDesktop(data) {
+        const books = data.books || [];
+        return `
+          <div class="space-y-4">
+            ${this.renderFormHtml()}
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-xs text-navy dark:text-white">📦 서적 신청 및 입금·배부 현황</h4>
+              <span class="text-[11px] text-gray-500 dark:text-slate-400">${data.isLive ? '실시간 DB 연동' : '예시 현황 / 로그인 시 실시간 조회'}</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs border-collapse">
+                <thead>
+                  <tr class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                    <th class="p-2 text-left font-bold">도서명 / 교과구분</th>
+                    <th class="p-2 text-center font-bold">수량</th>
+                    <th class="p-2 text-center font-bold">입금상태</th>
+                    <th class="p-2 text-center font-bold">배부상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${books.map(b => `
+                    <tr class="border-b border-gray-100 dark:border-slate-800">
+                      <td class="p-2 font-semibold text-navy dark:text-white">${b.book}</td>
+                      <td class="p-2 text-center">${b.qty}권</td>
+                      <td class="p-2 text-center"><span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 font-semibold">${b.payStatus}</span></td>
+                      <td class="p-2 text-center"><span class="px-2 py-0.5 rounded bg-goldLight/70 dark:bg-amber-900/40 text-amber-900 dark:text-gold font-semibold">${b.deliveryStatus}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      renderMobile(data) {
+        const books = (data.books || []).slice(0, 3);
+        return `
+          <div class="space-y-3">
+            ${this.renderFormHtml()}
+            <div class="space-y-2">
+              ${books.map(b => `
+                <div class="p-3 rounded-xl border border-gray-200 dark:border-slate-700 space-y-1 text-xs">
+                  <div class="font-bold text-navy dark:text-white">${b.book} (${b.qty}권)</div>
+                  <div class="flex items-center gap-2 text-[11px]">
+                    <span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800">입금: ${b.payStatus}</span>
+                    <span class="px-2 py-0.5 rounded bg-goldLight/70 dark:bg-amber-900/40 text-amber-900 dark:text-gold">배부: ${b.deliveryStatus}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    async function handleDarakbangSubmit(e) {
+      e.preventDefault();
+      if (!currentIdToken) {
+        alert('다락방 ID 신청 및 비밀번호 초기화 저장은 Google 계정 로그인 후 이용하실 수 있습니다.');
+        return;
+      }
+      const fd = new FormData(e.target);
+      const record = Object.fromEntries(fd.entries());
+      const res = await callApi('insertRow', { sheetName: 'Darakbang_Requests', record });
+      if (res && res.ok) {
+        alert('✅ 다락방 신청이 정상 접수되었습니다.');
+        await openSheetServiceModal(SERVICES.find(s => s.title === '다락방 ID·매뉴얼'));
+      } else {
+        alert('신청 오류: ' + ((res && res.error) || '권한 또는 입력값을 확인해 주세요.'));
+      }
+    }
+
+    // =========================================================
+    // 출석 날짜 정규화(yyyy-mm-dd) 및 yyyy-mm-dd(요일) 포맷팅 헬퍼
+    // =========================================================
+    function normalizeDateYMD(rawDate) {
+      const str = String(rawDate || '').trim();
+      if (!str || str === '-') return '';
+      const ymdOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+      if (ymdOnly) {
+        return `${ymdOnly[1]}-${ymdOnly[2]}-${ymdOnly[3]}`;
+      }
+      const parsed = new Date(str);
+      if (!isNaN(parsed.getTime())) {
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const d = String(parsed.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      return str.slice(0, 10);
+    }
+
+    function formatAttendanceDateWithDay(rawDate) {
+      const ymd = normalizeDateYMD(rawDate);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+      if (!match) return ymd || '-';
+      const dt = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+      return `${ymd}(${dayNames[dt.getDay()]})`;
+    }
+
+    window._attendanceAllRecords = [];
+    window._attendanceIsLive = false;
+
+    function computeAttendanceStats(records) {
+      const list = records || [];
+      const total = list.length;
+      const satCount = list.filter(r => String(r.service).includes('안식일')).length;
+      const tueCount = list.filter(r => String(r.service).includes('화요')).length;
+      const friCount = list.filter(r => String(r.service).includes('금요')).length;
+      return { total, satCount, tueCount, friCount };
+    }
+
+    function renderAttendanceSummaryHtml(stats) {
+      return `
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+          <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="text-[11px] text-gray-500 dark:text-slate-400">조회 건수</div>
+            <div class="text-sm font-bold text-navy dark:text-gold">${stats.total}건</div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="text-[11px] text-gray-500 dark:text-slate-400">안식일예배</div>
+            <div class="text-sm font-bold text-navy dark:text-white">${stats.satCount}건</div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="text-[11px] text-gray-500 dark:text-slate-400">화요예배</div>
+            <div class="text-sm font-bold text-navy dark:text-white">${stats.tueCount}건</div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+            <div class="text-[11px] text-gray-500 dark:text-slate-400">금요저녁예배</div>
+            <div class="text-sm font-bold text-navy dark:text-white">${stats.friCount}건</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderAttendanceRecordsListHtml(records, isMobile) {
+      const list = records || [];
+      if (!list.length) {
+        return `<div class="p-6 text-center text-xs text-gray-500 dark:text-slate-400 border border-dashed border-gray-200 dark:border-slate-700 rounded-xl">
+          검색 조건에 일치하는 출석 기록이 없습니다.
+        </div>`;
+      }
+      if (isMobile) {
+        return `
+          <div class="space-y-2">
+            ${list.map(r => `
+              <div class="p-3 rounded-xl border border-gray-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                <div>
+                  <div class="font-bold text-navy dark:text-gold">${r.service} · ${r.member}</div>
+                  <div class="text-[11px] text-gray-500 dark:text-slate-400">${formatAttendanceDateWithDay(r.date)} (${r.groupNo})</div>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 font-semibold">${r.status}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+      return `
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs border-collapse">
+            <thead>
+              <tr class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                <th class="p-2 text-left font-bold">일자</th>
+                <th class="p-2 text-left font-bold">예배구분</th>
+                <th class="p-2 text-left font-bold">성명</th>
+                <th class="p-2 text-center font-bold">소그룹반</th>
+                <th class="p-2 text-center font-bold">상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.map(r => `
+                <tr class="border-b border-gray-100 dark:border-slate-800">
+                  <td class="p-2 whitespace-nowrap font-mono text-[11px] sm:text-xs">${formatAttendanceDateWithDay(r.date)}</td>
+                  <td class="p-2 font-semibold text-navy dark:text-gold whitespace-nowrap">${r.service}</td>
+                  <td class="p-2 whitespace-nowrap">${r.member}</td>
+                  <td class="p-2 text-center whitespace-nowrap">${r.groupNo}</td>
+                  <td class="p-2 text-center whitespace-nowrap"><span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 font-semibold">${r.status}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function filterAttendanceRecords() {
+      const fromVal = (document.getElementById('att-search-from')?.value || '').trim();
+      const toVal = (document.getElementById('att-search-to')?.value || '').trim();
+      const serviceVal = (document.getElementById('att-search-service')?.value || '').trim();
+      const nameVal = (document.getElementById('att-search-name')?.value || '').trim().toLowerCase();
+
+      const filtered = (window._attendanceAllRecords || []).filter(r => {
+        const ymd = normalizeDateYMD(r.date);
+        if (fromVal && ymd && ymd < fromVal) return false;
+        if (toVal && ymd && ymd > toVal) return false;
+        if (serviceVal && !String(r.service || '').includes(serviceVal)) return false;
+        if (nameVal && !String(r.member || '').toLowerCase().includes(nameVal)) return false;
+        return true;
+      });
+
+      const stats = computeAttendanceStats(filtered);
+      const summaryEl = document.getElementById('att-summary-container');
+      const listEl = document.getElementById('att-records-container');
+      if (summaryEl) summaryEl.innerHTML = renderAttendanceSummaryHtml(stats);
+      if (listEl) listEl.innerHTML = renderAttendanceRecordsListHtml(filtered, getViewMode() === 'MOBILE_COMPACT');
+    }
+
+    function resetAttendanceSearch() {
+      const fromEl = document.getElementById('att-search-from');
+      const toEl = document.getElementById('att-search-to');
+      const srvEl = document.getElementById('att-search-service');
+      const nameEl = document.getElementById('att-search-name');
+      if (fromEl) fromEl.value = '';
+      if (toEl) toEl.value = '';
+      if (srvEl) srvEl.value = '';
+      if (nameEl) nameEl.value = '';
+      filterAttendanceRecords();
+    }
+
+    // 출석현황(화/금/안) 모듈 — 모바일 출석체크, 예배구분 필터 및 실시간 DB 연동
+    class AttendanceModule extends BaseModule {
+      constructor(opts = {}) {
+        super({
+          menuId: opts.menuId || 'ATTENDANCE_LOG',
+          title: opts.title || '출석현황 (화/금/안)',
+          minRole: opts.minRole || 2,
+          viewMode: opts.viewMode || getViewMode(),
+          container: opts.container || null
+        });
+      }
+
+      async fetchData() {
+        const sampleRecords = [
+          { date: '2026-11-21', service: '안식일예배', member: '성도A', groupNo: '1반', status: '출석' },
+          { date: '2026-11-21', service: '안식일예배', member: '성도B', groupNo: '2반', status: '출석' },
+          { date: '2026-11-24', service: '화요예배', member: '성도C', groupNo: '3반', status: '출석' },
+          { date: '2026-11-20', service: '금요저녁예배', member: '성도D', groupNo: '4반', status: '온라인' }
+        ];
+        if (!currentIdToken) {
+          window._attendanceAllRecords = sampleRecords;
+          window._attendanceIsLive = false;
+          return { records: sampleRecords, isLive: false };
+        }
+        try {
+          const res = await callApi('querySheet', { sheetName: 'Attendance_Log' });
+          if (res && res.ok && Array.isArray(res.rows) && res.rows.length) {
+            const mapped = res.rows.map(r => ({
+              recordId: r['Record_ID'] || r['recordId'] || '-',
+              date: r['예배일자'] || r['일자'] || r['출석일'] || r['date'] || '-',
+              service: r['예배구분(화/금/안)'] || r['예배구분'] || r['service'] || '안식일예배',
+              userId: r['User_ID'] || r['userId'] || '-',
+              member: sanitizeMemberName(r['성명'] || r['이름'] || r['member'] || '성도'),
+              groupNo: r['소속반'] || r['소그룹반'] || r['반'] || r['groupNo'] || '-',
+              status: r['출석상태'] || r['status'] || '출석',
+              enteredBy: r['입력자'] || r['enteredBy'] || '-'
+            }));
+            window._attendanceAllRecords = mapped;
+            window._attendanceIsLive = true;
+            return { records: mapped, isLive: true };
+          }
+        } catch (err) {
+          console.error('AttendanceModule fetchData error:', err);
+        }
+        window._attendanceAllRecords = sampleRecords;
+        window._attendanceIsLive = false;
+        return { records: sampleRecords, isLive: false };
+      }
+
+      renderCheckFormHtml() {
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const canProxyRegister = ROLE_LEVEL[currentRole] >= 3;
+        const selfName = sanitizeMemberName((currentUserProfile && currentUserProfile.name) || '성도');
+        return `
+          <form onsubmit="handleAttendanceSubmit(event)" class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-bold text-navy dark:text-gold text-xs">✅ 화요·금요·안식일 모바일 출석체크</span>
+              <span class="text-[11px] text-gray-500 dark:text-slate-400">
+                ${canProxyRegister ? '직원+ 권한: 성명 기준 소속반 자동매칭·대리 출석 지원' : '성명 기준 소속반 자동매칭 (Attendance_Log 연동)'}
+              </span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+              <div class="sm:col-span-4">
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1 whitespace-nowrap">예배일자</label>
+                <input id="att-date-input" type="date" name="예배일자" value="${todayStr}" required
+                  onchange="syncWorshipTypeByDate(this.value)"
+                  class="w-full h-[34px] px-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+              </div>
+              <div class="sm:col-span-5">
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1 whitespace-nowrap truncate" title="예배구분 (요일 자동선택 · 특별집회 가능)">예배구분 (요일 자동·특별집회)</label>
+                <select id="att-service-select" name="예배구분(화/금/안)" required
+                  class="w-full h-[34px] px-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                  ${renderWorshipOptionsHtml(todayStr)}
+                </select>
+              </div>
+              <div class="sm:col-span-3">
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1 whitespace-nowrap">참석형태</label>
+                <select name="출석상태" class="w-full h-[34px] px-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                  <option value="출석">현장 출석</option>
+                  <option value="온라인">온라인 참여</option>
+                </select>
+              </div>
+            </div>
+            ${canProxyRegister ? `
+              <div class="p-3 rounded-lg bg-amber-50/90 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label class="block text-[11px] font-bold text-amber-900 dark:text-gold mb-1">
+                    👵 대리 등록 대상 성명 (입력 시 소속반 자동매칭)
+                  </label>
+                  <input id="att-proxy-name" type="text" name="대상성명" placeholder="비워두면 본인(${selfName})으로 등록"
+                    class="w-full px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-xs" />
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-amber-900 dark:text-gold mb-1">
+                    대리 대상 User_ID (선택)
+                  </label>
+                  <input type="text" name="대상User_ID" placeholder="미입력 시 공란 처리 (입력자 기록 유지)"
+                    class="w-full px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-xs" />
+                </div>
+              </div>
+            ` : ''}
+            <button type="submit" class="bg-navy dark:bg-gold text-white dark:text-navyDark font-bold text-xs px-4 py-2 rounded-lg hover:opacity-90 transition">
+              출석 체크 등록하기
+            </button>
+          </form>
+        `;
+      }
+
+      renderSearchFilterHtml() {
+        return `
+          <div class="p-3 rounded-xl bg-gray-50 dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 space-y-2">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+              <div class="sm:col-span-5">
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">기간 (From ~ To)</label>
+                <div class="flex items-center gap-1">
+                  <input id="att-search-from" type="date" aria-label="시작일"
+                    class="w-full h-[32px] px-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-[11px]" />
+                  <span class="text-gray-400 text-xs">~</span>
+                  <input id="att-search-to" type="date" aria-label="종료일"
+                    class="w-full h-[32px] px-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-[11px]" />
+                </div>
+              </div>
+              <div class="sm:col-span-3">
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">예배구분</label>
+                <select id="att-search-service"
+                  class="w-full h-[32px] px-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                  <option value="">전체 예배</option>
+                  <option value="안식일예배">안식일예배</option>
+                  <option value="화요예배">화요예배</option>
+                  <option value="금요저녁예배">금요저녁예배</option>
+                  <option value="특별집회">특별집회</option>
+                </select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">성명</label>
+                <input id="att-search-name" type="text" placeholder="성명 입력"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();filterAttendanceRecords();}"
+                  class="w-full h-[32px] px-2.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+              </div>
+              <div class="sm:col-span-2 flex gap-1">
+                <button type="button" onclick="filterAttendanceRecords()"
+                  class="flex-1 h-[32px] bg-navy dark:bg-gold text-white dark:text-navyDark font-bold text-xs px-2.5 rounded-lg hover:opacity-90 transition whitespace-nowrap">
+                  🔍 검색
+                </button>
+                <button type="button" onclick="resetAttendanceSearch()" title="검색 조건 초기화"
+                  class="h-[32px] bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-300 border border-gray-300 dark:border-slate-600 font-semibold text-[11px] px-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition whitespace-nowrap">
+                  초기화
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      renderDesktop(data) {
+        const records = data.records || [];
+        const stats = computeAttendanceStats(records);
+        return `
+          <div class="space-y-4">
+            ${this.renderCheckFormHtml()}
+            <div id="att-summary-container">
+              ${renderAttendanceSummaryHtml(stats)}
+            </div>
+            <div class="space-y-2.5">
+              <div class="flex items-center justify-between">
+                <h4 class="font-bold text-xs text-navy dark:text-white">📊 최근 예배별 출석 기록 (화·금·안)</h4>
+                <span class="text-[11px] text-gray-500 dark:text-slate-400">${data.isLive ? '실시간 DB 연동' : '안내 샘플 / OAuth 로그인 시 실데이터 조회'}</span>
+              </div>
+              ${this.renderSearchFilterHtml()}
+            </div>
+            <div id="att-records-container">
+              ${renderAttendanceRecordsListHtml(records, false)}
+            </div>
+          </div>
+        `;
+      }
+
+      renderMobile(data) {
+        const records = data.records || [];
+        const stats = computeAttendanceStats(records);
+        return `
+          <div class="space-y-3">
+            ${this.renderCheckFormHtml()}
+            <div id="att-summary-container">
+              ${renderAttendanceSummaryHtml(stats)}
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <h4 class="font-bold text-xs text-navy dark:text-white">📊 최근 예배별 출석 기록 (화·금·안)</h4>
+                <span class="text-[11px] text-gray-500 dark:text-slate-400">${data.isLive ? '실시간 연동' : '샘플'}</span>
+              </div>
+              ${this.renderSearchFilterHtml()}
+            </div>
+            <div id="att-records-container">
+              ${renderAttendanceRecordsListHtml(records, true)}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function getSmallGroupNames() {
+      const sourceList = (hubCache.smallGroups && hubCache.smallGroups.length)
+        ? hubCache.smallGroups
+        : CONFIG.DEFAULT_SMALL_GROUPS;
+      const names = sourceList
+        .filter(g => g && g.active !== false)
+        .map(g => String(g.name || g['반명'] || g['소그룹명'] || g.groupName || '').trim())
+        .filter(Boolean);
+      return names.length ? names : CONFIG.DEFAULT_SMALL_GROUPS.map(g => g.name);
+    }
+
+    function getUserDefaultGroup(groupNames) {
+      const list = groupNames && groupNames.length ? groupNames : getSmallGroupNames();
+      const rawUserGroup = String(
+        (currentUserProfile && (
+          currentUserProfile.groupName ||
+          currentUserProfile.groupNo ||
+          currentUserProfile['소속반'] ||
+          currentUserProfile['소속반(1~9반)'] ||
+          ''
+        )) || ''
+      ).trim();
+
+      if (rawUserGroup) {
+        if (list.includes(rawUserGroup)) return rawUserGroup;
+        const numMatch = /^([1-9])반$/.exec(rawUserGroup);
+        if (numMatch) {
+          const idx = Number(numMatch[1]) - 1;
+          if (list[idx]) return list[idx];
+        }
+      }
+      return list[0] || '겸손반';
+    }
+
+    function renderGroupOptionsHtml(selectedGroup = '') {
+      const names = getSmallGroupNames();
+      const target = selectedGroup || getUserDefaultGroup(names);
+      return names.map(name => {
+        const isSelected = name === target ? ' selected' : '';
+        return `<option value="${name}"${isSelected}>${name}</option>`;
+      }).join('');
+    }
+
+    async function loadSmallGroupMaster() {
+      if (!currentIdToken) {
+        hubCache.smallGroups = CONFIG.DEFAULT_SMALL_GROUPS.slice();
+        return;
+      }
+      try {
+        const res = await callApi('querySheet', { sheetName: 'SmallGroup_Master' });
+        if (res && res.ok && Array.isArray(res.rows) && res.rows.length) {
+          const parsed = res.rows
+            .map(r => {
+              const name = String(r['반명'] || r['소그룹명'] || r['Group_Name'] || r['name'] || '').trim();
+              const activeRaw = String(r['사용여부'] ?? r['활성여부'] ?? r['Active'] ?? 'Y').trim().toUpperCase();
+              const active = !['N', 'NO', 'FALSE', '0', '비활성', '미사용'].includes(activeRaw);
+              return {
+                code: String(r['반코드'] || r['Group_ID'] || r['code'] || '').trim(),
+                name,
+                leader: String(r['반장'] || r['담당자'] || r['leader'] || '').trim(),
+                location: String(r['모임장소'] || r['장소'] || r['location'] || '').trim(),
+                active
+              };
+            })
+            .filter(g => g.name);
+          if (parsed.length) {
+            hubCache.smallGroups = parsed;
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('SmallGroup_Master 조회 fallback:', err);
+      }
+      if (!hubCache.smallGroups || !hubCache.smallGroups.length) {
+        hubCache.smallGroups = CONFIG.DEFAULT_SMALL_GROUPS.slice();
+      }
+    }
+
+    async function handleUserGroupChange(userKey, colName, newGroup) {
+      if (!currentIdToken) return;
+      if (currentUserProfile && (currentUserProfile.userId === userKey || currentUserProfile.email === userKey || currentUserProfile.name === userKey)) {
+        currentUserProfile.groupName = newGroup;
+        currentUserProfile['소속반'] = newGroup;
+      }
+      try {
+        const res = await callApi('updateUserGroup', { userKey, columnName: colName, groupName: newGroup });
+        if (res && res.ok) {
+          alert(`✅ 소속반이 '${newGroup || '미배정'}'(으)로 반영되었습니다.`);
+        }
+      } catch (e) {
+        console.warn('updateUserGroup 호출 참고:', e);
+      }
+    }
+
+    function getDefaultWorshipByDate(dateStr) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
+      if (!match) return '특별집회';
+      const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+      const day = d.getDay();
+      if (day === 2) return '화요예배';
+      if (day === 5) return '금요저녁예배';
+      if (day === 6) return '안식일예배';
+      return '특별집회';
+    }
+
+    function renderWorshipOptionsHtml(dateStr, selectedVal = '') {
+      const defaultVal = selectedVal || getDefaultWorshipByDate(dateStr);
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
+      const day = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getDay() : -1;
+
+      const options = [];
+      if (day === 2) {
+        options.push({ value: '화요예배', label: '화요예배 (기본 · 화 19:30)' });
+        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
+        options.push({ value: '금요저녁예배', label: '금요저녁예배 (금 19:30)' });
+        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
+      } else if (day === 5) {
+        options.push({ value: '금요저녁예배', label: '금요저녁예배 (기본 · 금 19:30)' });
+        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
+        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
+        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
+      } else if (day === 6) {
+        options.push({ value: '안식일예배', label: '안식일예배 (기본 · 토 10:00)' });
+        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
+        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
+        options.push({ value: '금요저녁예배', label: '금요저녁예배 (금 19:30)' });
+      } else {
+        options.push({ value: '특별집회', label: '특별집회 (기본 · 전 요일 선택가능)' });
+        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
+        options.push({ value: '금요저녁예배', label: '금요저녁예배 (금 19:30)' });
+        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
+      }
+
+      return options.map(o => `<option value="${o.value}"${o.value === defaultVal ? ' selected' : ''}>${o.label}</option>`).join('');
+    }
+
+    function syncWorshipTypeByDate(dateStr) {
+      const sel = document.getElementById('att-service-select');
+      if (!sel) return;
+      sel.innerHTML = renderWorshipOptionsHtml(dateStr);
+    }
+
+    let cachedMasterMembers = [];
+    async function resolveGroupByMemberName(memberName, explicitUserId = '') {
+      const cleanName = String(memberName || '').trim();
+      const cleanId = String(explicitUserId || '').trim();
+
+      if (currentUserProfile) {
+        const selfNames = [String(currentUserProfile.name || '').trim()];
+        const selfIds = [String(currentUserProfile.userId || '').trim(), String(currentUserProfile.email || '').trim()].filter(Boolean);
+        if ((cleanName && selfNames.includes(cleanName)) || (cleanId && selfIds.includes(cleanId))) {
+          const g = String(currentUserProfile.groupName || currentUserProfile['소속반'] || currentUserProfile.groupNo || '').trim();
+          if (g && g !== '미배정') return { groupName: g, userId: cleanId || String(currentUserProfile.userId || '').trim() };
+        }
+      }
+
+      if (!cachedMasterMembers.length && currentIdToken && ROLE_LEVEL[currentRole] >= 4) {
+        try {
+          const res = await callApi('querySheet', { sheetName: 'Users_Master' });
+          if (res && res.ok && Array.isArray(res.rows)) {
+            cachedMasterMembers = res.rows;
+          }
+        } catch (err) {
+          console.warn('Users_Master 자동매칭 조회 스킵:', err);
+        }
+      }
+
+      if (cachedMasterMembers.length) {
+        const found = cachedMasterMembers.find(u => {
+          const uName = String(u['성명'] || u['이름'] || '').trim();
+          const uId = String(u['User_ID'] || '').trim();
+          return (cleanId && uId && uId === cleanId) || (cleanName && uName && uName === cleanName);
+        });
+        if (found) {
+          const gCol = Object.keys(found).find(k => k.includes('소속반'));
+          const matchedGroup = gCol ? String(found[gCol] || '').trim() : '';
+          const matchedId = cleanId || String(found['User_ID'] || '').trim();
+          if (matchedGroup) return { groupName: matchedGroup, userId: matchedId };
+        }
+      }
+
+      try {
+        const attRes = await callApi('querySheet', { sheetName: 'Attendance_Log' });
+        if (attRes && attRes.ok && Array.isArray(attRes.rows) && cleanName) {
+          const prev = attRes.rows.find(r => String(r['성명'] || r['이름'] || '').trim() === cleanName && String(r['소속반'] || r['소그룹반'] || '').trim());
+          if (prev) {
+            const g = String(prev['소속반'] || prev['소그룹반'] || '').trim();
+            const uid = cleanId || String(prev['User_ID'] || '').trim();
+            return { groupName: g, userId: uid };
+          }
+        }
+      } catch (err) {
+        console.warn('Attendance_Log 과거 반명 매칭 스킵:', err);
+      }
+
+      return { groupName: getUserDefaultGroup(getSmallGroupNames()), userId: cleanId };
+    }
+
+    function validateAttendanceDateAndService(dateStr, serviceName) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
+      if (!match) {
+        return { valid: false, hardBlock: true, message: '예배일자 형식이 올바르지 않습니다. (YYYY-MM-DD)' };
+      }
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const selectedDate = new Date(year, month - 1, day);
+      if (
+        selectedDate.getFullYear() !== year ||
+        selectedDate.getMonth() !== month - 1 ||
+        selectedDate.getDate() !== day
+      ) {
+        return { valid: false, hardBlock: true, message: '존재하지 않는 날짜입니다. 예배일자를 다시 확인해 주세요.' };
+      }
+
+      const now = new Date();
+      const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (selectedDate > todayMidnight) {
+        return {
+          valid: false,
+          hardBlock: false,
+          message: `선택한 예배일자(${dateStr})가 오늘(${todayMidnight.toISOString().slice(0, 10)}) 이후 미래 날짜입니다. 계속 등록하시겠습니까?`
+        };
+      }
+
+      if (serviceName === '특별집회') {
+        return { valid: true, hardBlock: false, message: '' };
+      }
+
+      const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+      const actualDay = selectedDate.getDay();
+      const expectedDayMap = {
+        '화요예배': 2,
+        '금요저녁예배': 5,
+        '안식일예배': 6
+      };
+
+      if (Object.prototype.hasOwnProperty.call(expectedDayMap, serviceName)) {
+        const expectedDay = expectedDayMap[serviceName];
+        if (actualDay !== expectedDay) {
+          return {
+            valid: false,
+            hardBlock: false,
+            message: `선택한 예배일자(${dateStr})는 ${dayNames[actualDay]}입니다.\n'${serviceName}'는 일반적으로 ${dayNames[expectedDay]}에 진행됩니다.\n특별집회·수련회 등 예외 일정이 맞다면 [확인]을 눌러 계속 등록하세요.`
+          };
+        }
+      }
+
+      return { valid: true, hardBlock: false, message: '' };
+    }
+
+    async function handleAttendanceSubmit(e) {
+      e.preventDefault();
+      if (!currentIdToken) {
+        alert('출석 체크 저장은 Google 계정 로그인 후 이용하실 수 있습니다.');
+        return;
+      }
+      const fd = new FormData(e.target);
+      const formData = Object.fromEntries(fd.entries());
+      const serviceDate = formData['예배일자'] || new Date().toISOString().slice(0, 10);
+      const serviceType = formData['예배구분(화/금/안)'] || getDefaultWorshipByDate(serviceDate);
+
+      const check = validateAttendanceDateAndService(serviceDate, serviceType);
+      if (!check.valid) {
+        if (check.hardBlock) {
+          alert(check.message);
+          return;
+        }
+        const proceed = confirm(check.message);
+        if (!proceed) {
+          return;
+        }
+      }
+
+      const actorName = (currentUserProfile && currentUserProfile.name) || '성도';
+      const actorUserId = (currentUserProfile && (currentUserProfile.userId || currentUserProfile.id || currentUserProfile.email)) || '';
+      const canProxyRegister = ROLE_LEVEL[currentRole] >= 3;
+      const proxyTargetName = canProxyRegister ? String(formData['대상성명'] || '').trim() : '';
+      const proxyTargetUserId = canProxyRegister ? String(formData['대상User_ID'] || '').trim() : '';
+
+      const targetMemberName = proxyTargetName || actorName;
+      const matched = await resolveGroupByMemberName(targetMemberName, proxyTargetName ? proxyTargetUserId : actorUserId);
+      const targetUserId = proxyTargetName ? (proxyTargetUserId || matched.userId) : (actorUserId || matched.userId);
+      const matchedGroup = matched.groupName || '';
+      const recordId = 'ATT-' + Date.now();
+
+      const record = {
+        Record_ID: recordId,
+        recordId: recordId,
+        '예배일자': serviceDate,
+        '예배구분(화/금/안)': serviceType,
+        '예배구분': serviceType,
+        User_ID: targetUserId,
+        userId: targetUserId,
+        '성명': targetMemberName,
+        '소속반': matchedGroup,
+        '소그룹반': matchedGroup,
+        '출석상태': formData['출석상태'] || '출석',
+        '입력자': actorName
+      };
+
+      const res = await callApi('insertRow', { sheetName: 'Attendance_Log', record });
+      if (res && res.ok) {
+        alert(proxyTargetName
+          ? `✅ ${targetMemberName}님(${matchedGroup || '자동매칭'}) 대리 출석이 정상 등록되었습니다. (입력자: ${actorName})`
+          : `✅ ${targetMemberName}님(${matchedGroup || '자동매칭'}) 출석이 정상 등록되었습니다.`);
+        await openSheetServiceModal(SERVICES.find(s => s.title === '출석현황 (화/금/안)'));
+      } else {
+        alert('등록 오류: ' + ((res && res.error) || '권한 또는 입력값을 확인해 주세요.'));
+      }
+    }
+
+    async function handleBookRequestSubmit(e) {
+      e.preventDefault();
+      if (!currentIdToken) {
+        alert('서적 신청 저장은 Google 계정 로그인 후 이용하실 수 있습니다.');
+        return;
+      }
+      const fd = new FormData(e.target);
+      const record = Object.fromEntries(fd.entries());
+      record['수량'] = Number(record['수량'] || 1);
+      const res = await callApi('insertRow', { sheetName: 'Book_Requests', record });
+      if (res && res.ok) {
+        alert('✅ 서적 신청이 정상 등록되었습니다.');
+        await openSheetServiceModal(SERVICES.find(s => s.title === '서적신청조회'));
+      } else {
+        alert('신청 오류: ' + ((res && res.error) || '권한 또는 입력값을 확인해 주세요.'));
+      }
+    }
+
+    function renderQuickHub() {
+      const favSlot = document.getElementById('quick-favorites-slot');
+      const linkSlot = document.getElementById('quick-links-slot');
+      const userLv = ROLE_LEVEL[currentRole];
+
+      if (favSlot) {
+        const favServices = SERVICES.filter(s => favoriteIds.includes(s.title));
+        favSlot.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-sm sm:text-base text-navy dark:text-white">⭐ 개인화 Quick 즐겨찾기</h2>
+            <span class="text-[11px] text-gray-500 dark:text-slate-400">${userLv >= 2 ? '자주 쓰는 메뉴 바로가기' : '성도 로그인 후 활성화'}</span>
+          </div>
+          ${userLv < 2
+            ? `<div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 text-xs text-gray-600 dark:text-slate-300">
+                로그인 후 서비스 카드의 ★ 버튼을 눌러 나만의 퀵 메뉴를 구성할 수 있습니다.
+               </div>`
+            : `<div class="flex flex-wrap gap-2">
+                ${favServices.length ? favServices.map(srv => `
+                  <button onclick="handleServiceClick(${SERVICES.indexOf(srv)})"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-skyBg dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-xs font-bold text-navy dark:text-gold transition">
+                    <span>${srv.icon}</span>
+                    <span>${srv.title}</span>
+                  </button>
+                `).join('') : `<span class="text-xs text-gray-500">즐겨찾기로 지정한 메뉴가 없습니다.</span>`}
+               </div>`
+          }`;
+      }
+
+      if (linkSlot) {
+        const visibleLinks = CONFIG.QUICK_HUB_LINKS.filter(l => userLv >= l.minRole);
+        linkSlot.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-sm sm:text-base text-navy dark:text-white">🔗 전자 신청서비스 링크 허브</h2>
+            <span class="text-[11px] text-gray-500 dark:text-slate-400">결재·영수증·제안·투표</span>
+          </div>
+          ${visibleLinks.length
+            ? `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                ${visibleLinks.map(l => `
+                  <a href="${l.url}" target="_blank"
+                    class="p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-skyBg/60 dark:bg-slate-800 hover:border-navy dark:hover:border-gold transition flex items-center gap-2.5">
+                    <span class="text-lg">${l.icon}</span>
+                    <div class="min-w-0">
+                      <div class="text-xs font-bold text-navy dark:text-white truncate">${l.title}</div>
+                      <div class="text-[11px] text-gray-500 dark:text-slate-400 truncate">${l.desc}</div>
+                    </div>
+                  </a>
+                `).join('')}
+               </div>`
+            : `<div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 text-xs text-gray-600 dark:text-slate-300">
+                전자 신청·결재·투표 서비스는 성도(2. 다산교회) 또는 직원(3. 직원) 로그인 시 노출됩니다.
+               </div>`
+          }`;
+      }
+    }
+
+    function mountAllModules() {
+      const badge = document.getElementById('view-mode-badge');
+      if (badge) badge.textContent = `VIEW: ${getViewMode()}`;
+      const dutyMod = new WeeklyDutyModule({
+        menuId: 'WEEKLY_DUTY',
+        title: '이번 주 / 다음 주 담당표',
+        minRole: 2,
+        container: '#weekly-duty-slot'
+      });
+      dutyMod.mount();
+      renderQuickHub();
+    }
+
+    function renderGalleryStrip(albums) {
+      const grid = document.getElementById('gallery-strip-grid');
+      if (!grid) return;
+      if (!albums.length) {
+        grid.innerHTML = `
+          <div class="col-span-full text-center py-6 text-xs text-gray-500 dark:text-slate-400">
+            공유 드라이브 [02_활동사진_갤러리]에 행사별 폴더(예: 2026_안식일학교)를 생성하면 자동으로 앨범이 표시됩니다.
+          </div>`;
+        return;
+      }
+      grid.innerHTML = albums.slice(0, 4).map(album => {
+        const thumb = (album.photos && album.photos[0]) ? album.photos[0].thumb : '';
+        return `
+          <a href="https://drive.google.com/drive/folders/${album.folderId}" target="_blank"
+             class="group rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-skyBg dark:bg-slate-800 hover:shadow-md transition">
+            <div class="aspect-video bg-gray-200 dark:bg-slate-700 overflow-hidden flex items-center justify-center">
+              ${thumb
+                ? `<img src="${thumb}" alt="${album.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />`
+                : `<span class="text-2xl">📸</span>`}
+            </div>
+            <div class="p-3">
+              <div class="font-bold text-xs text-navy dark:text-white truncate">${album.title}</div>
+              <div class="text-[11px] text-gray-500 dark:text-slate-400 mt-0.5">사진 ${album.photos ? album.photos.length : 0}장</div>
+            </div>
+          </a>`;
+      }).join('');
+    }
+
+    function renderCalendarEvents(events) {
+      if (!events.length) return;
+      const list = document.getElementById('calendar-event-list');
+      if (!list) return;
+      list.innerHTML = events.slice(0, 4).map(ev => {
+        const d = new Date(ev.start);
+        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+        const timeStr = `${d.getMonth() + 1}/${d.getDate()}(${dayNames[d.getDay()]}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        return `
+          <li class="flex items-start justify-between pb-2 border-b border-gray-100 dark:border-slate-800 last:border-none">
+            <div>
+              <span class="font-bold text-navy dark:text-slate-100">${ev.title}</span>
+              <p class="text-xs text-gray-500 dark:text-slate-400">${ev.location || '다산교회'}</p>
+            </div>
+            <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">${timeStr}</span>
+          </li>`;
+      }).join('');
+    }
+
+    function openBulletinModal() {
+      const modal = document.getElementById('service-modal');
+      document.getElementById('modal-icon').textContent = '📄';
+      document.getElementById('modal-title').textContent = '다산교회 예배주보 아카이브';
+      document.getElementById('modal-subtitle').textContent = 'Google Drive (01_예배주보_PDF) 실시간 동기화';
+
+      const listHtml = (hubCache.bulletins && hubCache.bulletins.length)
+        ? hubCache.bulletins.map((b, idx) => `
+            <div class="flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-skyBg/50 dark:bg-slate-800">
+              <div>
+                <span class="font-bold text-navy dark:text-white">${idx === 0 ? '🆕 ' : ''}${b.name}</span>
+                <div class="text-[11px] text-gray-500 dark:text-slate-400">업데이트: ${(b.updated || '').slice(0, 10)}</div>
+              </div>
+              <a href="${b.url}" target="_blank" class="bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-bold px-3 py-1.5 rounded-lg">열람하기</a>
+            </div>
+          `).join('')
+        : `<p class="text-gray-600 dark:text-slate-300">현재 공유 드라이브 주보 폴더에서 최신 파일을 바로 열람하실 수 있습니다.</p>`;
+
+      document.getElementById('modal-body').innerHTML = `
+        <div class="space-y-3">${listHtml}</div>
+        <div class="pt-3 border-t border-gray-200 dark:border-slate-700 text-right">
+          <a href="${CONFIG.FOLDERS.BULLETIN}" target="_blank" class="inline-block bg-gold text-navyDark font-bold text-xs px-4 py-2 rounded-lg">
+            📁 전체 주보 폴더 바로가기
+          </a>
+        </div>
+      `;
+      modal.classList.remove('hidden');
+    }
+
+    // =========================================================
+    // 5. Google OAuth 로그인 및 권한 관리
+    // =========================================================
+    function handleAuthClick() {
+      if (currentRole !== '외부인' || currentIdToken) {
+        currentIdToken = '';
+        currentUserProfile = null;
+        document.getElementById('role-preview').value = '외부인';
+        changePreviewRole('외부인');
+        return;
+      }
+
+      if (CONFIG.GOOGLE_CLIENT_ID && window.google && window.google.accounts && window.google.accounts.id) {
+        google.accounts.id.initialize({
+          client_id: CONFIG.GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            currentIdToken = response.credential;
+            const res = await callApi('getSessionProfile');
+            if (res && res.ok && res.user) {
+              currentUserProfile = res.user;
+              await loadSmallGroupMaster();
+              const resolvedRole = res.user.role || '외부인';
+              document.getElementById('role-preview').value = resolvedRole;
+              changePreviewRole(resolvedRole);
+              alert(`${sanitizeMemberName(res.user.name)}님 환영합니다! (${resolvedRole} 등급으로 로그인되었습니다)`);
+            } else {
+              alert((res && res.error) || '로그인 검증에 실패했습니다.');
+            }
+          }
+        });
+        google.accounts.id.prompt();
+      } else {
+        document.getElementById('role-preview').value = '다산교회';
+        changePreviewRole('다산교회');
+      }
+    }
+
+    // =========================================================
+    // 6. 30대 서비스 정의 및 실시간 DB 조회·등록 모달
+    // =========================================================
+    const SERVICES = [
+      // 대외·선교 (9종)
+      { cat: '대외·선교', title: '교회소개·오시는 길', desc: '비전·담임목사 인사·위치', minRole: 1, icon: '⛪', url: '#guide-section' },
+      { cat: '대외·선교', title: '다산교회 캘린더', desc: '예배·행사·당번 일정', minRole: 1, icon: '📅', url: '#dashboard-widgets' },
+      { cat: '대외·선교', title: '예배주보 (Drive)', desc: '금주 주보 PDF 즉시 열람', minRole: 1, icon: '📄', action: () => openBulletinModal() },
+      { cat: '대외·선교', title: '활동사진 갤러리', desc: '행사별 앨범 자동 동기화', minRole: 1, icon: '📸', url: CONFIG.FOLDERS.GALLERY },
+      { cat: '대외·선교', title: '말씀묵상·유튜브', desc: '@sda5239 및 카톡 공유', minRole: 1, icon: '🎬', url: 'https://www.youtube.com/@sda5239' },
+      { cat: '대외·선교', title: 'OneVoice27 & Light27', desc: '선교 실천 서약 및 달성률', minRole: 1, icon: '🕯️', sheet: 'Key_Projects' },
+      { cat: '대외·선교', title: '헌금설명 (7대 헌금)', desc: '십일조·월정·도르가 등 안내', minRole: 1, icon: '💛', action: () => switchGuideTab('offerings') },
+      { cat: '대외·선교', title: '패스파인더 설명', desc: '청소년 신앙·탐험 클럽', minRole: 1, icon: '🏕️', action: () => switchGuideTab('pathfinder') },
+      { cat: '대외·선교', title: '어드벤처러 설명', desc: '어린이·가족 신앙 프로그램', minRole: 1, icon: '🌱', action: () => switchGuideTab('adventurer') },
+
+      // 신앙·편의 (8종)
+      { cat: '신앙·편의', title: '소그룹반 (9개반)', desc: '반별 교과토의·기도제목', minRole: 2, icon: '👥', sheet: 'SmallGroup_Reports' },
+      { cat: '신앙·편의', title: '출석현황 (화/금/안)', desc: '모바일 출석체크 및 통계', minRole: 2, icon: '✅', sheet: 'Attendance_Log' },
+      { cat: '신앙·편의', title: '달란트 관리', desc: '신앙활동 등록 및 현황판', minRole: 2, icon: '🏆', sheet: 'Talent_Ledger', formFields: ['활동구분', '증빙메모', '신청달란트'] },
+      { cat: '신앙·편의', title: '다락방 ID·매뉴얼', desc: '신규발급·초기화·사용법', minRole: 2, icon: '🔑', sheet: 'Darakbang_Requests', formFields: ['연락처', '요청구분(신규발급/비번초기화)'] },
+      { cat: '신앙·편의', title: '헌금내역 조회', desc: '본인 전용 헌금 납부 조회', minRole: 2, icon: '🔒', sheet: 'Offerings_Log' },
+      { cat: '신앙·편의', title: '서적신청조회', desc: '교과책·신앙서적 공동구매', minRole: 2, icon: '📚', sheet: 'Book_Requests', formFields: ['도서명/교과구분', '수량'] },
+      { cat: '신앙·편의', title: '제안함 관리', desc: '교회 발전 건의 및 답변', minRole: 2, icon: '💡', sheet: 'Suggestions', formFields: ['공개여부', '제목', '내용'] },
+      { cat: '신앙·편의', title: '중보기도신청', desc: '공동체 및 비공개 기도요청', minRole: 2, icon: '🙏', sheet: 'Prayer_Requests', formFields: ['공개범위(전체/교역자전용)', '기도제목'] },
+
+      // 예배·봉사 (5종)
+      { cat: '예배·봉사', title: '식사당번 체크리스트', desc: '안식일 애찬 당번 및 점검', minRole: 2, icon: '🍽️', sheet: 'Checklists_Log', formFields: ['예배/집회구분', '특이사항'] },
+      { cat: '예배·봉사', title: '예배순서자 매뉴얼', desc: '사회·대표기도·설교자 가이드', minRole: 2, icon: '🎤', url: CONFIG.FOLDERS.MANUAL },
+      { cat: '예배·봉사', title: '시무장로 체크리스트', desc: '강단·성찬·영접 현장 점검', minRole: 3, icon: '📋', sheet: 'Checklists_Log', formFields: ['예배/집회구분', '특이사항'] },
+      { cat: '예배·봉사', title: '시무집사 체크리스트', desc: '본당·헌금·안내·시건 점검', minRole: 3, icon: '🛡️', sheet: 'Checklists_Log', formFields: ['예배/집회구분', '특이사항'] },
+      { cat: '예배·봉사', title: '교회안전관리 점검', desc: '소방·전기·가스 안전기록', minRole: 3, icon: '🧯', sheet: 'Checklists_Log', formFields: ['예배/집회구분', '특이사항'] },
+
+      // 행정·재정·Wiki (8종)
+      { cat: '행정·재정', title: '다산교회 Wiki', desc: '행정 내규·장비 운영 백과', minRole: 2, icon: '📖', url: CONFIG.FOLDERS.MANUAL },
+      { cat: '행정·재정', title: '지불결의서 현황', desc: '온라인 기안 및 결재 추적', minRole: 3, icon: '🧾', sheet: 'Payment_Vouchers', formFields: ['부서명', '지출항목', '청구금액'] },
+      { cat: '행정·재정', title: '부서별 지출관리', desc: '연간 예산 대비 집행률 조회', minRole: 3, icon: '📊', sheet: 'Dept_Budgets' },
+      { cat: '행정·재정', title: '주요사업과제 관리', desc: '2027 사업계획 진척·리스크', minRole: 3, icon: '🎯', sheet: 'Key_Projects' },
+      { cat: '행정·재정', title: '직원회 회의록 조회', desc: '직원 전용 의결 회의록 열람', minRole: 3, icon: '🗂️', sheet: 'Minutes_Archive' },
+      { cat: '행정·재정', title: '보험계약관리', desc: '화재·차량·행사 보험 만기관리', minRole: 3, icon: '📑', sheet: 'Contracts_Admin' },
+      { cat: '행정·재정', title: '자동이체관리', desc: '공과금·렌탈 정기이체 현황', minRole: 3, icon: '💳', sheet: 'Contracts_Admin' },
+      { cat: '행정·재정', title: '권한관리 콘솔', desc: '회원 승인 및 4단계 등급 부여', minRole: 4, icon: '⚙️', sheet: 'Users_Master' }
+    ];
+
+    async function handleServiceClick(index) {
+      const srv = SERVICES[index];
+      if (!srv) return;
+      const userLv = ROLE_LEVEL[currentRole] || 1;
+      if (userLv < srv.minRole) {
+        alert(`[접근 제한] '${srv.title}' 메뉴는 [${Object.keys(ROLE_LEVEL).find(k => ROLE_LEVEL[k] === srv.minRole)}] 등급 이상 로그인 후 이용하실 수 있습니다.`);
+        return;
+      }
+      if (srv.action) { srv.action(); return; }
+      if (srv.url && srv.url.startsWith('http')) { window.open(srv.url, '_blank'); return; }
+      if (srv.url && srv.url.startsWith('#') && srv.url.length > 1) {
+        document.querySelector(srv.url)?.scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+
+      openSheetServiceModal(srv);
+    }
+
+    async function openSheetServiceModal(srv) {
+      const modal = document.getElementById('service-modal');
+      const body = document.getElementById('modal-body');
+      document.getElementById('modal-icon').textContent = srv.icon;
+      document.getElementById('modal-title').textContent = srv.title;
+      document.getElementById('modal-subtitle').textContent = `연동 DB 테이블: ${srv.sheet || '마스터 시트'}`;
+
+      if (srv.title === '다락방 ID·매뉴얼') {
+        const mod = new DarakbangModule({ viewMode: getViewMode() });
+        const data = await mod.fetchData();
+        body.innerHTML = getViewMode() === 'MOBILE_COMPACT' ? mod.renderMobile(data) : mod.renderDesktop(data);
+        modal.classList.remove('hidden');
+        return;
+      }
+
+      if (srv.title === '헌금내역 조회') {
+        const mod = new OfferingsModule({ viewMode: getViewMode() });
+        const data = await mod.fetchData();
+        body.innerHTML = getViewMode() === 'MOBILE_COMPACT' ? mod.renderMobile(data) : mod.renderDesktop(data);
+        modal.classList.remove('hidden');
+        return;
+      }
+
+      if (srv.title === '서적신청조회') {
+        const mod = new BookRequestModule({ viewMode: getViewMode() });
+        const data = await mod.fetchData();
+        body.innerHTML = getViewMode() === 'MOBILE_COMPACT' ? mod.renderMobile(data) : mod.renderDesktop(data);
+        modal.classList.remove('hidden');
+        return;
+      }
+
+      if (srv.title === '출석현황 (화/금/안)') {
+        const mod = new AttendanceModule({ viewMode: getViewMode() });
+        const data = await mod.fetchData();
+        body.innerHTML = getViewMode() === 'MOBILE_COMPACT' ? mod.renderMobile(data) : mod.renderDesktop(data);
+        modal.classList.remove('hidden');
+        return;
+      }
+
+      const formHtml = srv.formFields ? `
+        <form onsubmit="submitServiceForm(event, '${srv.sheet}')" class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 space-y-3">
+          <div class="font-bold text-navy dark:text-gold text-xs">✍️ 신규 신청 / 등록하기</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            ${srv.formFields.map(f => `
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">${f}</label>
+                <input name="${f}" required class="w-full px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" placeholder="${f} 입력" />
+              </div>
+            `).join('')}
+          </div>
+          <button type="submit" class="bg-navy dark:bg-gold text-white dark:text-navyDark font-bold text-xs px-4 py-2 rounded-lg hover:opacity-90">
+            DB에 즉시 저장하기
+          </button>
+        </form>
+      ` : '';
+
+      body.innerHTML = `
+        ${formHtml}
+        <div id="modal-sheet-data" class="text-center py-6 text-xs text-gray-500">
+          ${currentIdToken
+            ? '⏳ Google Sheets에서 실시간 데이터를 불러오는 중입니다...'
+            : '💡 현재 [미리보기 권한 체험 모드]입니다. Google OAuth 인증 세션(idToken) 연결 시 실제 DB 내역 조회 및 저장이 활성화됩니다.'}
+        </div>
+      `;
+      modal.classList.remove('hidden');
+
+      if (currentIdToken && srv.sheet) {
+        if (srv.sheet === 'Users_Master') {
+          await loadSmallGroupMaster();
+        }
+        const res = await callApi('querySheet', { sheetName: srv.sheet });
+        const container = document.getElementById('modal-sheet-data');
+        if (res && res.ok && res.rows && res.rows.length) {
+          const isUsersMaster = srv.sheet === 'Users_Master';
+          const groupColKey = isUsersMaster
+            ? (Object.keys(res.rows[0]).find(k => k.includes('소속반')) || '소속반(1~9반)')
+            : '';
+          const cols = Object.keys(res.rows[0]).slice(0, 5);
+          container.innerHTML = `
+            <div class="overflow-x-auto text-left">
+              ${isUsersMaster ? `<div class="mb-2 text-[11px] text-navy dark:text-gold font-semibold">📌 SmallGroup_Master 반명 목록(${getSmallGroupNames().join(', ')}) 기준으로 소속반을 선택할 수 있습니다.</div>` : ''}
+              <table class="w-full text-xs border-collapse">
+                <thead>
+                  <tr class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                    ${cols.map(c => `<th class="p-2 font-bold">${c}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${res.rows.slice(0, 15).map((r, rowIdx) => `
+                    <tr class="border-b border-gray-100 dark:border-slate-800">
+                      ${cols.map(c => {
+                        if (isUsersMaster && c === groupColKey) {
+                          const currentVal = String(r[c] || '').trim();
+                          const opts = getSmallGroupNames().map(g => `<option value="${g}"${g === currentVal ? ' selected' : ''}>${g}</option>`).join('');
+                          const extraOpt = (!currentVal || getSmallGroupNames().includes(currentVal))
+                            ? ''
+                            : `<option value="${currentVal}" selected>${currentVal}</option>`;
+                          const userKey = r['User_ID'] || r['Google_Email'] || r['성명'] || rowIdx;
+                          return `<td class="p-2">
+                            <select onchange="handleUserGroupChange('${String(userKey).replace(/'/g, '')}', '${c}', this.value)"
+                              class="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                              <option value="">미배정</option>
+                              ${extraOpt}
+                              ${opts}
+                            </select>
+                          </td>`;
+                        }
+                        return `<td class="p-2">${r[c] ?? ''}</td>`;
+                      }).join('')}
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>`;
+        } else {
+          container.textContent = (res && res.error) || '조회된 데이터 내역이 없습니다.';
+        }
+      }
+    }
+
+    async function submitServiceForm(e, sheetName) {
+      e.preventDefault();
+      if (!currentIdToken) {
+        alert('실제 Google 계정으로 로그인한 상태에서만 DB 시트에 저장할 수 있습니다.');
+        return;
+      }
+      const fd = new FormData(e.target);
+      const record = Object.fromEntries(fd.entries());
+      const res = await callApi('insertRow', { sheetName, record });
+      if (res && res.ok) {
+        alert('✅ 다산교회 통합 DB에 정상 등록되었습니다!');
+        closeServiceModal();
+      } else {
+        alert('등록 오류: ' + ((res && res.error) || '권한을 확인해 주세요.'));
+      }
+    }
+
+    function closeServiceModal() {
+      document.getElementById('service-modal').classList.add('hidden');
+    }
+
+    // =========================================================
+    // 7. 실시간 예배 카운트다운, 권한 변경 및 UI 렌더링
+    // =========================================================
+    function updateWorshipCountdown() {
+      const now = new Date();
+      const schedules = [
+        { name: '화요예배', day: 2, hour: 19, min: 30 },
+        { name: '금요저녁예배', day: 5, hour: 19, min: 30 },
+        { name: '안식일예배', day: 6, hour: 10, min: 0 }
+      ];
+      let nearest = null;
+      let minDiff = Infinity;
+      schedules.forEach(s => {
+        const target = new Date(now);
+        const dayDiff = (s.day - now.getDay() + 7) % 7;
+        target.setDate(now.getDate() + dayDiff);
+        target.setHours(s.hour, s.min, 0, 0);
+        if (target <= now) target.setDate(target.getDate() + 7);
+        const diff = target - now;
+        if (diff < minDiff) { minDiff = diff; nearest = { name: s.name, diff }; }
+      });
+      if (!nearest) return;
+      const days = Math.floor(nearest.diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((nearest.diff / (1000 * 60 * 60)) % 24);
+      const mins = Math.floor((nearest.diff / (1000 * 60)) % 60);
+      const secs = Math.floor((nearest.diff / 1000) % 60);
+      const lbl = document.getElementById('next-worship-label');
+      const cd = document.getElementById('worship-countdown');
+      if (lbl) lbl.textContent = `다음 ${nearest.name}까지`;
+      if (cd) cd.textContent = `${days > 0 ? days + '일 ' : ''}${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    setInterval(updateWorshipCountdown, 1000);
+    updateWorshipCountdown();
+
+    function switchGuideTab(tabName) {
+      ['offerings', 'pathfinder', 'adventurer'].forEach(t => {
+        const btn = document.getElementById('tab-' + t);
+        const panel = document.getElementById('panel-' + t);
+        if (!btn || !panel) return;
+        if (t === tabName) {
+          btn.className = 'bg-navy dark:bg-gold text-white dark:text-navyDark border-navy dark:border-gold text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap';
+          panel.classList.remove('hidden');
+        } else {
+          btn.className = 'bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap';
+          panel.classList.add('hidden');
+        }
+      });
+      document.getElementById('guide-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function changePreviewRole(role) {
+      currentRole = role;
+      const badge = document.getElementById('user-badge');
+      const authBtn = document.getElementById('auth-btn');
+      if (role === '외부인') {
+        if (badge) {
+          badge.textContent = '1. 외부인';
+          badge.className = 'hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300';
+        }
+        if (authBtn) authBtn.textContent = 'Google 로그인';
+      } else {
+        const displayName = currentIdToken && currentUserProfile ? sanitizeMemberName(currentUserProfile.name) : `${role} (미리보기)`;
+        if (badge) {
+          badge.textContent = `${ROLE_LEVEL[role]}. ${displayName}`;
+          badge.className = 'hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-goldLight dark:bg-amber-900/50 text-amber-900 dark:text-gold';
+        }
+        if (authBtn) authBtn.textContent = '로그아웃';
+      }
+      renderPersonalizedCard();
+      mountAllModules();
+      renderServices();
+    }
+
+    function renderPersonalizedCard() {
+      const card = document.getElementById('personalized-card');
+      if (!card) return;
+      if (currentRole === '외부인') {
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold text-navy dark:text-gold bg-skyBg dark:bg-slate-800 px-2.5 py-1 rounded-md">오시는 길 &amp; 새가족 안내</span>
+              <span class="text-xs text-gray-400 dark:text-slate-500">환영합니다</span>
+            </div>
+            <h3 class="font-bold text-base text-gray-900 dark:text-white mb-1">다산교회 방문을 환영합니다</h3>
+            <p class="text-xs text-gray-600 dark:text-slate-300 leading-relaxed mb-3">
+              주소: 경기도 남양주시 진건읍 고재로 197<br/>
+              성도님께서는 상단 <strong>Google 로그인</strong> 후 출석·달란트·본인 헌금조회를 이용하실 수 있습니다.
+            </p>
+          </div>
+          <div class="pt-3 border-t border-gray-100 dark:border-slate-800 flex gap-2">
+            <a href="https://map.naver.com/p/search/경기도 남양주시 진건읍 고재로 197" target="_blank" class="flex-1 text-center bg-skyBg dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-navy dark:text-slate-200 text-xs font-bold py-2.5 rounded-lg transition">
+              🗺️ 네이버 지도
+            </a>
+            <button onclick="handleAuthClick()" class="flex-1 bg-navy dark:bg-gold hover:opacity-90 text-white dark:text-navyDark text-xs font-bold py-2.5 rounded-lg transition">
+              성도 로그인
+            </button>
+          </div>`;
+      } else {
+        const isRealAuth = Boolean(currentIdToken) && Boolean(currentUserProfile);
+        const talentDisplay = isRealAuth && currentUserProfile.talent !== undefined ? `${currentUserProfile.talent} P` : '미리보기';
+        const groupDisplay = isRealAuth ? (currentUserProfile.groupName || currentUserProfile['소속반'] || currentUserProfile.groupNo || '미배정') : '소속반';
+        const attDisplay = isRealAuth && currentUserProfile.attendanceRate ? currentUserProfile.attendanceRate : '로그인 후 확인';
+        const offeringIdx = SERVICES.findIndex(s => s.title === '헌금내역 조회');
+        const talentIdx = SERVICES.findIndex(s => s.title === '달란트 관리');
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold text-amber-900 dark:text-gold bg-goldLight dark:bg-amber-900/40 px-2.5 py-1 rounded-md">나의 신앙 대시보드 (${currentRole})</span>
+              <span class="text-xs ${isRealAuth ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'} font-semibold">
+                ${isRealAuth ? '● 실계정 인증됨' : '◐ 미리보기 모드'}
+              </span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center my-2">
+              <div class="bg-skyBg dark:bg-slate-800 p-2.5 rounded-xl">
+                <div class="text-[11px] text-gray-500 dark:text-slate-400">누적 달란트</div>
+                <div class="text-sm font-bold text-navy dark:text-gold">${talentDisplay}</div>
+              </div>
+              <div class="bg-skyBg dark:bg-slate-800 p-2.5 rounded-xl">
+                <div class="text-[11px] text-gray-500 dark:text-slate-400">소그룹반</div>
+                <div class="text-sm font-bold text-navy dark:text-white">${groupDisplay}</div>
+              </div>
+              <div class="bg-skyBg dark:bg-slate-800 p-2.5 rounded-xl">
+                <div class="text-[11px] text-gray-500 dark:text-slate-400">금월 출석</div>
+                <div class="text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400">${attDisplay}</div>
+              </div>
+            </div>
+          </div>
+          <div class="pt-3 border-t border-gray-100 dark:border-slate-800 flex gap-2">
+            <button onclick="handleServiceClick(${offeringIdx})" class="flex-1 text-center bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-bold py-2.5 rounded-lg hover:opacity-90 transition">
+              🔒 본인 헌금조회
+            </button>
+            <button onclick="handleServiceClick(${talentIdx})" class="flex-1 text-center bg-skyBg dark:bg-slate-800 text-navy dark:text-slate-200 text-xs font-bold py-2.5 rounded-lg hover:opacity-90 transition">
+              🏆 달란트 적립
+            </button>
+          </div>`;
+      }
+    }
+
+    function filterServices(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        const active = btn.getAttribute('data-cat') === cat;
+        btn.className = active
+          ? 'cat-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-navy text-white dark:bg-gold dark:text-navyDark'
+          : 'cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700';
+      });
+      renderServices();
+    }
+
+    function renderServices() {
+      const grid = document.getElementById('services-grid');
+      if (!grid) return;
+      const userLv = ROLE_LEVEL[currentRole] || 1;
+      const filtered = currentCategory === 'ALL' ? SERVICES : SERVICES.filter(s => s.cat === currentCategory);
+      grid.innerHTML = filtered.map((srv) => {
+        const srvIdx = SERVICES.indexOf(srv);
+        const unlocked = userLv >= srv.minRole;
+        const isFav = favoriteIds.includes(srv.title);
+        const roleTag = srv.minRole === 1 ? '전체' : srv.minRole === 2 ? '성도+' : srv.minRole === 3 ? '직원+' : '관리자';
+        return `
+          <div onclick="handleServiceClick(${srvIdx})"
+               class="cursor-pointer rounded-xl p-3.5 border transition flex flex-col justify-between ${
+                 unlocked
+                   ? 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800 hover:border-navy dark:hover:border-gold hover:shadow-md'
+                   : 'bg-gray-100/80 dark:bg-slate-900/40 border-gray-200 dark:border-slate-800/60 opacity-60'
+               }">
+            <div class="flex items-start justify-between gap-1 mb-2">
+              <span class="text-xl">${srv.icon}</span>
+              <div class="flex items-center gap-1">
+                ${unlocked && userLv >= 2
+                  ? `<button type="button" onclick="toggleFavorite('${srv.title}', event)" aria-label="즐겨찾기 토글"
+                      class="text-xs px-1 rounded ${isFav ? 'text-amber-500' : 'text-gray-300 dark:text-slate-600 hover:text-amber-400'}">★</button>`
+                  : ''}
+                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                  unlocked
+                    ? 'bg-skyBg dark:bg-slate-800 text-navy dark:text-gold'
+                    : 'bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-slate-500'
+                }">
+                  ${unlocked ? roleTag : '🔒 ' + roleTag}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div class="font-bold text-xs sm:text-sm text-gray-900 dark:text-slate-100 leading-snug">${srv.title}</div>
+              <div class="text-[11px] text-gray-500 dark:text-slate-400 mt-0.5 line-clamp-1">${srv.desc}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function shareKakaoDevotion() {
+      const verseEl = document.getElementById('daily-verse-text');
+      const verse = verseEl ? verseEl.textContent.trim() : '"너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요" (마태복음 5:14)';
+      const text = `[다산교회 오늘의 말씀과 묵상]
+${verse}
+
+▶ 온라인예배 및 묵상 보기: https://www.youtube.com/@sda5239`;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+          alert('오늘의 말씀 묵상 카드가 클립보드에 복사되었습니다.\n카카오톡방에 붙여넣기하여 바로 나누실 수 있습니다!');
+        });
+      } else {
+        alert(text);
+      }
+    }
+
+    function initPortalApp() {
+      hubCache.smallGroups = CONFIG.DEFAULT_SMALL_GROUPS.slice();
+      try { loadFavorites(); } catch (e) { console.error(e); }
+      try { renderPersonalizedCard(); } catch (e) { console.error(e); }
+      try { renderQuickHub(); } catch (e) { console.error(e); }
+      try { mountAllModules(); } catch (e) { console.error(e); }
+      try { renderServices(); } catch (e) { console.error(e); }
+      try { loadPublicHubData(); } catch (e) { console.error(e); }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPortalApp);
+    } else {
+      initPortalApp();
+    }
+    window.addEventListener('resize', () => {
+      try { mountAllModules(); } catch (e) { console.error(e); }
+    });
+  </script>
+</body>
+</html>
