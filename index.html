@@ -570,9 +570,13 @@
         return;
       }
 
+      let timedOut = false;
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 5000);
+        const timer = setTimeout(() => {
+          timedOut = true;
+          controller.abort('timeout_12000ms');
+        }, 12000);
         const res = await fetch(CONFIG.API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -616,9 +620,13 @@
           applyFallbackHubData();
         }
       } catch (err) {
-        console.error('API 연동 오류:', err);
+        if (timedOut || (err && err.name === 'AbortError')) {
+          console.warn('API 응답 지연(12s)으로 기본 허브 모드로 전환했습니다.');
+        } else {
+          console.error('API 연동 오류:', err);
+        }
         if (statusDot) {
-          statusDot.innerHTML = '🟡 기본 허브 모드(API 점검)';
+          statusDot.innerHTML = '🟡 기본 허브 모드(API 지연/점검)';
           statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200';
         }
         applyFallbackHubData();
