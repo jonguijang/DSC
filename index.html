@@ -2010,7 +2010,7 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
       } else {
         const isRealAuth = Boolean(currentIdToken) && Boolean(currentUserProfile);
         const talentDisplay = isRealAuth && currentUserProfile.talent !== undefined ? `${currentUserProfile.talent} P` : '미리보기';
-        const groupDisplay = isRealAuth && currentUserProfile.groupNo ? currentUserProfile.groupNo : '소속반';
+        const groupDisplay = isRealAuth ? (currentUserProfile.groupName || currentUserProfile['소속반'] || currentUserProfile.groupNo || '미배정') : '소속반';
         const attDisplay = isRealAuth && currentUserProfile.attendanceRate ? currentUserProfile.attendanceRate : '로그인 후 확인';
         const offeringIdx = SERVICES.findIndex(s => s.title === '헌금내역 조회');
         const talentIdx = SERVICES.findIndex(s => s.title === '달란트 관리');
