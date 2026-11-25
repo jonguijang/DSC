@@ -1117,11 +1117,14 @@
           if (res && res.ok && Array.isArray(res.rows) && res.rows.length) {
             return {
               records: res.rows.slice(0, 30).map(r => ({
-                date: r['일자'] || r['출석일'] || r['date'] || '2026-11-21',
+                recordId: r['Record_ID'] || r['recordId'] || '-',
+                date: r['예배일자'] || r['일자'] || r['출석일'] || r['date'] || '-',
                 service: r['예배구분(화/금/안)'] || r['예배구분'] || r['service'] || '안식일예배',
+                userId: r['User_ID'] || r['userId'] || '-',
                 member: sanitizeMemberName(r['성명'] || r['이름'] || r['member'] || '성도'),
-                groupNo: r['소그룹반'] || r['반'] || r['groupNo'] || '-',
-                status: r['출석상태'] || r['status'] || '출석'
+                groupNo: r['소속반'] || r['소그룹반'] || r['반'] || r['groupNo'] || '-',
+                status: r['출석상태'] || r['status'] || '출석',
+                enteredBy: r['입력자'] || r['enteredBy'] || '-'
               })),
               isLive: true
             };
@@ -1151,8 +1154,8 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
               <div>
-                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">일자</label>
-                <input type="date" name="일자" value="${todayStr}" required class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">예배일자</label>
+                <input type="date" name="예배일자" value="${todayStr}" required class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
               </div>
               <div>
                 <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">예배구분</label>
@@ -1163,8 +1166,8 @@
                 </select>
               </div>
               <div>
-                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">소그룹반</label>
-                <select name="소그룹반" class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">소속반</label>
+                <select name="소속반" class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
                   <option value="1반">1반</option>
                   <option value="2반">2반</option>
                   <option value="3반">3반</option>
@@ -1283,8 +1286,24 @@
         return;
       }
       const fd = new FormData(e.target);
-      const record = Object.fromEntries(fd.entries());
-      record['성명'] = sanitizeMemberName(currentUserProfile && currentUserProfile.name);
+      const formData = Object.fromEntries(fd.entries());
+      const memberName = (currentUserProfile && currentUserProfile.name) || '성도';
+      const userId = (currentUserProfile && (currentUserProfile.userId || currentUserProfile.id || currentUserProfile.email)) || '';
+      const recordId = 'ATT-' + Date.now();
+      const record = {
+        Record_ID: recordId,
+        recordId: recordId,
+        '예배일자': formData['예배일자'] || new Date().toISOString().slice(0, 10),
+        '예배구분(화/금/안)': formData['예배구분(화/금/안)'] || '안식일예배',
+        '예배구분': formData['예배구분(화/금/안)'] || '안식일예배',
+        User_ID: userId,
+        userId: userId,
+        '성명': memberName,
+        '소속반': formData['소속반'] || '',
+        '소그룹반': formData['소속반'] || '',
+        '출석상태': formData['출석상태'] || '출석',
+        '입력자': memberName
+      };
       const res = await callApi('insertRow', { sheetName: 'Attendance_Log', record });
       if (res && res.ok) {
         alert('✅ 출석이 정상 등록되었습니다.');
