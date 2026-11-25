@@ -1236,22 +1236,28 @@ ${verse}
 ▶ 온라인예배 및 묵상 보기: https://www.youtube.com/@sda5239`;
       if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => {
-          alert('오늘의 말씀 묵상 카드가 클립보드에 복사되었습니다.
-카카오톡방에 붙여넣기하여 바로 나누실 수 있습니다!');
+          alert('오늘의 말씀 묵상 카드가 클립보드에 복사되었습니다.\n카카오톡방에 붙여넣기하여 바로 나누실 수 있습니다!');
         });
       } else {
         alert(text);
       }
     }
 
-    loadFavorites();
-    renderPersonalizedCard();
-    renderQuickHub();
-    mountAllModules();
-    renderServices();
-    loadPublicHubData();
+    function initPortalApp() {
+      try { loadFavorites(); } catch (e) { console.error(e); }
+      try { renderPersonalizedCard(); } catch (e) { console.error(e); }
+      try { renderQuickHub(); } catch (e) { console.error(e); }
+      try { mountAllModules(); } catch (e) { console.error(e); }
+      try { renderServices(); } catch (e) { console.error(e); }
+      try { loadPublicHubData(); } catch (e) { console.error(e); }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPortalApp);
+    } else {
+      initPortalApp();
+    }
     window.addEventListener('resize', () => {
-      mountAllModules();
+      try { mountAllModules(); } catch (e) { console.error(e); }
     });
   </script>
 </body>
