@@ -525,10 +525,75 @@
       return rawName || '배정 예정';
     }
 
+    function applyFallbackHubData() {
+      const nowIso = new Date().toISOString();
+      hubCache = {
+        bulletins: [
+          {
+            name: '다산교회 주보 폴더 (Google Drive)',
+            updated: nowIso,
+            url: CONFIG.FOLDERS.BULLETIN
+          }
+        ],
+        galleries: [],
+        events: [
+          {
+            title: '안식일학교 및 대예배',
+            location: '다산교회 본당 · 매주 토요일',
+            start: nowIso
+          },
+          {
+            title: '화요기도·말씀예배',
+            location: '다산교회 본당 · 매주 화요일',
+            start: nowIso
+          },
+          {
+            title: '금요저녁예배',
+            location: '다산교회 본당 · 매주 금요일',
+            start: nowIso
+          }
+        ],
+        duties: []
+      };
+      renderGalleryStrip(hubCache.galleries);
+      mountAllModules();
+    }
+
     async function loadPublicHubData() {
       const statusDot = document.getElementById('api-status-dot');
+      if (!CONFIG.API_URL || CONFIG.API_URL.includes('YOUR_')) {
+        if (statusDot) {
+          statusDot.innerHTML = '🟡 API URL 미설정(기본 허브)';
+          statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200';
+        }
+        applyFallbackHubData();
+        return;
+      }
+
       try {
-        const data = await callApi('getPublicHubData');
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(CONFIG.API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'getPublicHubData',
+            idToken: currentIdToken,
+            rolePreview: currentRole,
+            payload: {}
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+
+        const text = await res.text();
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch (parseErr) {
+          throw new Error('Apps Script 응답이 JSON 형식이 아닙니다. 웹 앱 배포 권한(액세스 권한: 모든 사용자)을 확인하세요.');
+        }
+
         if (data && data.ok) {
           hubCache = {
             bulletins: data.bulletins || [],
@@ -545,16 +610,18 @@
           mountAllModules();
         } else {
           if (statusDot) {
-            statusDot.innerHTML = '🟡 API 점검중';
+            statusDot.innerHTML = '🟡 API 응답 대기(기본 허브)';
             statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200';
           }
+          applyFallbackHubData();
         }
       } catch (err) {
         console.error('API 연동 오류:', err);
         if (statusDot) {
-          statusDot.innerHTML = '🔴 오프라인/대기 모드';
-          statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-200';
+          statusDot.innerHTML = '🟡 기본 허브 모드(API 점검)';
+          statusDot.className = 'ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200';
         }
+        applyFallbackHubData();
       }
     }
 
