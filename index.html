@@ -419,6 +419,17 @@
         MANUAL: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
         VOUCHER_RECEIPT: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud'
       },
+      DEFAULT_SMALL_GROUPS: [
+        { code: 'GRP-01', name: '겸손반', leader: '', location: '본당', active: true },
+        { code: 'GRP-02', name: '사랑반', leader: '', location: '본당', active: true },
+        { code: 'GRP-03', name: '온유반', leader: '', location: '교육관', active: true },
+        { code: 'GRP-04', name: '믿음반', leader: '', location: '교육관', active: true },
+        { code: 'GRP-05', name: '소망반', leader: '', location: '교육관', active: true },
+        { code: 'GRP-06', name: '기쁨반', leader: '', location: '소그룹실', active: true },
+        { code: 'GRP-07', name: '평화반', leader: '', location: '소그룹실', active: true },
+        { code: 'GRP-08', name: '은혜반', leader: '', location: '소그룹실', active: true },
+        { code: 'GRP-09', name: '진리반', leader: '', location: '소그룹실', active: true }
+      ],
       QUICK_HUB_LINKS: [
         { title: '전자결재_지불결의서', desc: '02_결재_지불결의서 기안·결재', minRole: 3, icon: '🧾', url: 'https://drive.google.com' },
         { title: '전자신청_기부금영수증', desc: '03_신청_기부금영수증 신청', minRole: 2, icon: '📄', url: 'https://drive.google.com' },
@@ -432,7 +443,7 @@
     let currentCategory = 'ALL';
     let currentIdToken = '';
     let currentUserProfile = null;
-    let hubCache = { bulletins: [], galleries: [], events: [], duties: [] };
+    let hubCache = { bulletins: [], galleries: [], events: [], duties: [], smallGroups: [] };
     let favoriteIds = [];
 
     function loadFavorites() {
@@ -553,7 +564,8 @@
             start: nowIso
           }
         ],
-        duties: []
+        duties: [],
+        smallGroups: CONFIG.DEFAULT_SMALL_GROUPS.slice()
       };
       renderGalleryStrip(hubCache.galleries);
       mountAllModules();
@@ -599,11 +611,15 @@
         }
 
         if (data && data.ok) {
+          const apiGroups = (data.smallGroups && data.smallGroups.length)
+            ? data.smallGroups
+            : ((hubCache.smallGroups && hubCache.smallGroups.length) ? hubCache.smallGroups : CONFIG.DEFAULT_SMALL_GROUPS.slice());
           hubCache = {
             bulletins: data.bulletins || [],
             galleries: data.galleries || [],
             events: data.events || [],
-            duties: data.duties || []
+            duties: data.duties || [],
+            smallGroups: apiGroups
           };
           if (statusDot) {
             statusDot.innerHTML = '🟢 실시간 연동됨';
@@ -1170,17 +1186,9 @@
                 </select>
               </div>
               <div>
-                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">소속반</label>
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">소속반 (SmallGroup_Master)</label>
                 <select name="소속반" class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
-                  <option value="1반">1반</option>
-                  <option value="2반">2반</option>
-                  <option value="3반">3반</option>
-                  <option value="4반">4반</option>
-                  <option value="5반">5반</option>
-                  <option value="6반">6반</option>
-                  <option value="7반">7반</option>
-                  <option value="8반">8반</option>
-                  <option value="9반">9반</option>
+                  ${renderGroupOptionsHtml()}
                 </select>
               </div>
               <div>
@@ -1298,6 +1306,100 @@
             </div>
           </div>
         `;
+      }
+    }
+
+function getSmallGroupNames() {
+      const sourceList = (hubCache.smallGroups && hubCache.smallGroups.length)
+        ? hubCache.smallGroups
+        : CONFIG.DEFAULT_SMALL_GROUPS;
+      const names = sourceList
+        .filter(g => g && g.active !== false)
+        .map(g => String(g.name || g['반명'] || g['소그룹명'] || g.groupName || '').trim())
+        .filter(Boolean);
+      return names.length ? names : CONFIG.DEFAULT_SMALL_GROUPS.map(g => g.name);
+    }
+
+    function getUserDefaultGroup(groupNames) {
+      const list = groupNames && groupNames.length ? groupNames : getSmallGroupNames();
+      const rawUserGroup = String(
+        (currentUserProfile && (
+          currentUserProfile.groupName ||
+          currentUserProfile.groupNo ||
+          currentUserProfile['소속반'] ||
+          currentUserProfile['소속반(1~9반)'] ||
+          ''
+        )) || ''
+      ).trim();
+
+      if (rawUserGroup) {
+        if (list.includes(rawUserGroup)) return rawUserGroup;
+        const numMatch = /^([1-9])반$/.exec(rawUserGroup);
+        if (numMatch) {
+          const idx = Number(numMatch[1]) - 1;
+          if (list[idx]) return list[idx];
+        }
+      }
+      return list[0] || '겸손반';
+    }
+
+    function renderGroupOptionsHtml(selectedGroup = '') {
+      const names = getSmallGroupNames();
+      const target = selectedGroup || getUserDefaultGroup(names);
+      return names.map(name => {
+        const isSelected = name === target ? ' selected' : '';
+        return `<option value="${name}"${isSelected}>${name}</option>`;
+      }).join('');
+    }
+
+    async function loadSmallGroupMaster() {
+      if (!currentIdToken) {
+        hubCache.smallGroups = CONFIG.DEFAULT_SMALL_GROUPS.slice();
+        return;
+      }
+      try {
+        const res = await callApi('querySheet', { sheetName: 'SmallGroup_Master' });
+        if (res && res.ok && Array.isArray(res.rows) && res.rows.length) {
+          const parsed = res.rows
+            .map(r => {
+              const name = String(r['반명'] || r['소그룹명'] || r['Group_Name'] || r['name'] || '').trim();
+              const activeRaw = String(r['사용여부'] ?? r['활성여부'] ?? r['Active'] ?? 'Y').trim().toUpperCase();
+              const active = !['N', 'NO', 'FALSE', '0', '비활성', '미사용'].includes(activeRaw);
+              return {
+                code: String(r['반코드'] || r['Group_ID'] || r['code'] || '').trim(),
+                name,
+                leader: String(r['반장'] || r['담당자'] || r['leader'] || '').trim(),
+                location: String(r['모임장소'] || r['장소'] || r['location'] || '').trim(),
+                active
+              };
+            })
+            .filter(g => g.name);
+          if (parsed.length) {
+            hubCache.smallGroups = parsed;
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('SmallGroup_Master 조회 fallback:', err);
+      }
+      if (!hubCache.smallGroups || !hubCache.smallGroups.length) {
+        hubCache.smallGroups = CONFIG.DEFAULT_SMALL_GROUPS.slice();
+      }
+    }
+
+async function handleUserGroupChange(userKey, colName, newGroup) {
+      if (!currentIdToken) return;
+      if (currentUserProfile && (currentUserProfile.userId === userKey || currentUserProfile.email === userKey || currentUserProfile.name === userKey)) {
+        currentUserProfile.groupName = newGroup;
+        currentUserProfile['소속반'] = newGroup;
+      }
+      try {
+        const res = await callApi('updateUserGroup', { userKey, columnName: colName, groupName: newGroup });
+        if (res && res.ok) {
+          alert(`✅ 소속반이 '${newGroup || '미배정'}'(으)로 반영되었습니다.`);
+        }
+      } catch (e) {
+        console.warn('updateUserGroup 호출 참고:', e);
       }
     }
 
@@ -1589,6 +1691,7 @@
             const res = await callApi('getSessionProfile');
             if (res && res.ok && res.user) {
               currentUserProfile = res.user;
+              await loadSmallGroupMaster();
               const resolvedRole = res.user.role || '외부인';
               document.getElementById('role-preview').value = resolvedRole;
               changePreviewRole(resolvedRole);
@@ -1733,12 +1836,20 @@
       modal.classList.remove('hidden');
 
       if (currentIdToken && srv.sheet) {
+        if (srv.sheet === 'Users_Master') {
+          await loadSmallGroupMaster();
+        }
         const res = await callApi('querySheet', { sheetName: srv.sheet });
         const container = document.getElementById('modal-sheet-data');
         if (res && res.ok && res.rows && res.rows.length) {
+          const isUsersMaster = srv.sheet === 'Users_Master';
+          const groupColKey = isUsersMaster
+            ? (Object.keys(res.rows[0]).find(k => k.includes('소속반')) || '소속반(1~9반)')
+            : '';
           const cols = Object.keys(res.rows[0]).slice(0, 5);
           container.innerHTML = `
             <div class="overflow-x-auto text-left">
+              ${isUsersMaster ? `<div class="mb-2 text-[11px] text-navy dark:text-gold font-semibold">📌 SmallGroup_Master 반명 목록(${getSmallGroupNames().join(', ')}) 기준으로 소속반을 선택할 수 있습니다.</div>` : ''}
               <table class="w-full text-xs border-collapse">
                 <thead>
                   <tr class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
@@ -1746,9 +1857,27 @@
                   </tr>
                 </thead>
                 <tbody>
-                  ${res.rows.slice(0, 15).map(r => `
+                  ${res.rows.slice(0, 15).map((r, rowIdx) => `
                     <tr class="border-b border-gray-100 dark:border-slate-800">
-                      ${cols.map(c => `<td class="p-2">${r[c] ?? ''}</td>`).join('')}
+                      ${cols.map(c => {
+                        if (isUsersMaster && c === groupColKey) {
+                          const currentVal = String(r[c] || '').trim();
+                          const opts = getSmallGroupNames().map(g => `<option value="${g}"${g === currentVal ? ' selected' : ''}>${g}</option>`).join('');
+                          const extraOpt = (!currentVal || getSmallGroupNames().includes(currentVal))
+                            ? ''
+                            : `<option value="${currentVal}" selected>${currentVal}</option>`;
+                          const userKey = r['User_ID'] || r['Google_Email'] || r['성명'] || rowIdx;
+                          return `<td class="p-2">
+                            <select onchange="handleUserGroupChange('${String(userKey).replace(/'/g, '')}', '${c}', this.value)"
+                              class="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                              <option value="">미배정</option>
+                              ${extraOpt}
+                              ${opts}
+                            </select>
+                          </td>`;
+                        }
+                        return `<td class="p-2">${r[c] ?? ''}</td>`;
+                      }).join('')}
                     </tr>
                   `).join('')}
                 </tbody>
@@ -1988,6 +2117,7 @@ ${verse}
     }
 
     function initPortalApp() {
+      hubCache.smallGroups = CONFIG.DEFAULT_SMALL_GROUPS.slice();
       try { loadFavorites(); } catch (e) { console.error(e); }
       try { renderPersonalizedCard(); } catch (e) { console.error(e); }
       try { renderQuickHub(); } catch (e) { console.error(e); }
