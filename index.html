@@ -445,6 +445,7 @@
     let currentUserProfile = null;
     let hubCache = { bulletins: [], galleries: [], events: [], duties: [], smallGroups: [] };
     let favoriteIds = [];
+    let cachedMasterMembers = [];
 
     function loadFavorites() {
       try {
@@ -527,7 +528,6 @@
       return await res.json();
     }
 
-    // 외부인(비로그인) 또는 서버 미인증 상태에서는 성도 실명을 절대 노출하지 않음
     function sanitizeMemberName(rawName) {
       const hasVerifiedSession = Boolean(currentIdToken) && ROLE_LEVEL[currentRole] >= 2;
       if (!hasVerifiedSession) {
@@ -650,7 +650,7 @@
     }
 
     // =========================================================
-    // 4. 주간 담당표(WeeklyDutyModule) & 12/02 예정 모듈(DarakbangModule, OfferingsModule, BookRequestModule)
+    // 4. 주간 담당표(WeeklyDutyModule) & 기능별 모듈
     // =========================================================
     class WeeklyDutyModule extends BaseModule {
       async fetchData() {
@@ -737,7 +737,6 @@
       }
     }
 
-    // [12/02 예정] 다락방 ID 신청/비번초기화 및 매뉴얼 모듈
     class DarakbangModule extends BaseModule {
       constructor(opts = {}) {
         super({
@@ -862,7 +861,6 @@
       }
     }
 
-    // [12/02 예정] 본인 전용 헌금내역 조회 모듈 (Google OAuth 본인 인증 기반 격리)
     class OfferingsModule extends BaseModule {
       constructor(opts = {}) {
         super({
@@ -973,7 +971,6 @@
       }
     }
 
-    // [12/02 예정] 서적신청조회 모듈 (교과책·신앙서적 공동구매 신청 및 입금·배부 상태 조회)
     class BookRequestModule extends BaseModule {
       constructor(opts = {}) {
         super({
@@ -1106,7 +1103,6 @@
       }
     }
 
-    // [12/03 예정] 출석현황(화/금/안) 모듈 — 모바일 출석체크, 예배구분 필터 및 실시간 DB 연동
     class AttendanceModule extends BaseModule {
       constructor(opts = {}) {
         super({
@@ -1305,7 +1301,7 @@
       }
     }
 
-function getSmallGroupNames() {
+    function getSmallGroupNames() {
       const sourceList = (hubCache.smallGroups && hubCache.smallGroups.length)
         ? hubCache.smallGroups
         : CONFIG.DEFAULT_SMALL_GROUPS;
@@ -1383,7 +1379,7 @@ function getSmallGroupNames() {
       }
     }
 
-async function handleUserGroupChange(userKey, colName, newGroup) {
+    async function handleUserGroupChange(userKey, colName, newGroup) {
       if (!currentIdToken) return;
       if (currentUserProfile && (currentUserProfile.userId === userKey || currentUserProfile.email === userKey || currentUserProfile.name === userKey)) {
         currentUserProfile.groupName = newGroup;
@@ -1419,110 +1415,6 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
       if (day === 2) {
         options.push({ value: '화요예배', label: '화요예배 (기본 · 화 19:30)' });
         options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
-        options.push({ value: '금요저녁예배', label: '금요저녁예배 (금 19:30)' });
-        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
-      } else if (day === 5) {
-        options.push({ value: '금요저녁예배', label: '금요예배 (기본 · 금 19:30)' });
-        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
-        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
-        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
-      } else if (day === 6) {
-        options.push({ value: '안식일예배', label: '안식일예배 (기본 · 토 10:00)' });
-        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
-        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
-        options.push({ value: '금요저녁예배', label: '금요저녁예배 (금 19:30)' });
-      } else {
-        options.push({ value: '특별집회', label: '특별집회 (기본 · 전 요일 선택가능)' });
-        options.push({ value: '화요예배', label: '화요예배 (화 19:30)' });
-        options.push({ value: '금요저녁예배', label: '금요예배 (금 19:30)' });
-        options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
-      }
-
-      return options.map(o => `<option value="${o.value}"${o.value === defaultVal ? ' selected' : ''}>${o.label}</option>`).join('');
-    }
-
-    function syncWorshipTypeByDate(dateStr) {
-      const sel = document.getElementById('att-service-select');
-      if (!sel) return;
-      sel.innerHTML = renderWorshipOptionsHtml(dateStr);
-    }
-
-    let cachedMasterMembers = [];
-    async function resolveGroupByMemberName(memberName, explicitUserId = '') {
-      const cleanName = String(memberName || '').trim();
-      const cleanId = String(explicitUserId || '').trim();
-
-      if (currentUserProfile) {
-        const selfNames = [String(currentUserProfile.name || '').trim()];
-        const selfIds = [String(currentUserProfile.userId || '').trim(), String(currentUserProfile.email || '').trim()].filter(Boolean);
-        if ((cleanName && selfNames.includes(cleanName)) || (cleanId && selfIds.includes(cleanId))) {
-          const g = String(currentUserProfile.groupName || currentUserProfile['소속반'] || currentUserProfile.groupNo || '').trim();
-          if (g && g !== '미배정') return { groupName: g, userId: cleanId || String(currentUserProfile.userId || '').trim() };
-        }
-      }
-
-      if (!cachedMasterMembers.length && currentIdToken && ROLE_LEVEL[currentRole] >= 4) {
-        try {
-          const res = await callApi('querySheet', { sheetName: 'Users_Master' });
-          if (res && res.ok && Array.isArray(res.rows)) {
-            cachedMasterMembers = res.rows;
-          }
-        } catch (err) {
-          console.warn('Users_Master 자동매칭 조회 스킵:', err);
-        }
-      }
-
-      if (cachedMasterMembers.length) {
-        const found = cachedMasterMembers.find(u => {
-          const uName = String(u['성명'] || u['이름'] || '').trim();
-          const uId = String(u['User_ID'] || '').trim();
-          return (cleanId && uId && uId === cleanId) || (cleanName && uName && uName === cleanName);
-        });
-        if (found) {
-          const gCol = Object.keys(found).find(k => k.includes('소속반'));
-          const matchedGroup = gCol ? String(found[gCol] || '').trim() : '';
-          const matchedId = cleanId || String(found['User_ID'] || '').trim();
-          if (matchedGroup) return { groupName: matchedGroup, userId: matchedId };
-        }
-      }
-
-      try {
-        const attRes = await callApi('querySheet', { sheetName: 'Attendance_Log' });
-        if (attRes && attRes.ok && Array.isArray(attRes.rows) && cleanName) {
-          const prev = attRes.rows.find(r => String(r['성명'] || r['이름'] || '').trim() === cleanName && String(r['소속반'] || r['소그룹반'] || '').trim());
-          if (prev) {
-            const g = String(prev['소속반'] || prev['소그룹반'] || '').trim();
-            const uid = cleanId || String(prev['User_ID'] || '').trim();
-            return { groupName: g, userId: uid };
-          }
-        }
-      } catch (err) {
-        console.warn('Attendance_Log 과거 반명 매칭 스킵:', err);
-      }
-
-      return { groupName: getUserDefaultGroup(getSmallGroupNames()), userId: cleanId };
-    }
-
-    function getDefaultWorshipByDate(dateStr) {
-      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
-      if (!match) return '특별집회';
-      const d = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-      const day = d.getDay();
-      if (day === 2) return '화요예배';
-      if (day === 5) return '금요저녁예배';
-      if (day === 6) return '안식일예배';
-      return '특별집회';
-    }
-
-    function renderWorshipOptionsHtml(dateStr, selectedVal = '') {
-      const defaultVal = selectedVal || getDefaultWorshipByDate(dateStr);
-      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || '').trim());
-      const day = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getDay() : -1;
-
-      const options = [];
-      if (day === 2) {
-        options.push({ value: '화요예배', label: '화요예배 (기본 · 화 19:30)' });
-        options.push({ value: '특별집회', label: '특별집회 (선택가능)' });
         options.push({ value: '금요저녁예배', label: '금요예배 (금 19:30)' });
         options.push({ value: '안식일예배', label: '안식일예배 (토 10:00)' });
       } else if (day === 5) {
@@ -1551,7 +1443,6 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
       sel.innerHTML = renderWorshipOptionsHtml(dateStr);
     }
 
-    let cachedMasterMembers = [];
     async function resolveGroupByMemberName(memberName, explicitUserId = '') {
       const cleanName = String(memberName || '').trim();
       const cleanId = String(explicitUserId || '').trim();
@@ -1924,7 +1815,6 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
     // 6. 30대 서비스 정의 및 실시간 DB 조회·등록 모달
     // =========================================================
     const SERVICES = [
-      // 대외·선교 (9종)
       { cat: '대외·선교', title: '교회소개·오시는 길', desc: '비전·담임목사 인사·위치', minRole: 1, icon: '⛪', url: '#guide-section' },
       { cat: '대외·선교', title: '다산교회 캘린더', desc: '예배·행사·당번 일정', minRole: 1, icon: '📅', url: '#dashboard-widgets' },
       { cat: '대외·선교', title: '예배주보 (Drive)', desc: '금주 주보 PDF 즉시 열람', minRole: 1, icon: '📄', action: () => openBulletinModal() },
@@ -1935,7 +1825,6 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
       { cat: '대외·선교', title: '패스파인더 설명', desc: '청소년 신앙·탐험 클럽', minRole: 1, icon: '🏕️', action: () => switchGuideTab('pathfinder') },
       { cat: '대외·선교', title: '어드벤처러 설명', desc: '어린이·가족 신앙 프로그램', minRole: 1, icon: '🌱', action: () => switchGuideTab('adventurer') },
 
-      // 신앙·편의 (8종)
       { cat: '신앙·편의', title: '소그룹반 (9개반)', desc: '반별 교과토의·기도제목', minRole: 2, icon: '👥', sheet: 'SmallGroup_Reports' },
       { cat: '신앙·편의', title: '출석현황 (화/금/안)', desc: '모바일 출석체크 및 통계', minRole: 2, icon: '✅', sheet: 'Attendance_Log' },
       { cat: '신앙·편의', title: '달란트 관리', desc: '신앙활동 등록 및 현황판', minRole: 2, icon: '🏆', sheet: 'Talent_Ledger', formFields: ['활동구분', '증빙메모', '신청달란트'] },
@@ -1945,14 +1834,12 @@ async function handleUserGroupChange(userKey, colName, newGroup) {
       { cat: '신앙·편의', title: '제안함 관리', desc: '교회 발전 건의 및 답변', minRole: 2, icon: '💡', sheet: 'Suggestions', formFields: ['공개여부', '제목', '내용'] },
       { cat: '신앙·편의', title: '중보기도신청', desc: '공동체 및 비공개 기도요청', minRole: 2, icon: '🙏', sheet: 'Prayer_Requests', formFields: ['공개범위(전체/교역자전용)', '기도제목'] },
 
-      // 예배·봉사 (5종)
       { cat: '예배·봉사', title: '식사당번 체크리스트', desc: '안식일 애찬 당번 및 점검', minRole: 2, icon: '🍽️', sheet: 'Checklists_Log', formFields: ['예배/집회구분', '특이사항'] },
       { cat: '예배·봉사', title: '예배순서자 매뉴얼', desc: '사회·대표기도·설교자 가이드', minRole: 2, icon: '🎤', url: CONFIG.FOLDERS.MANUAL },
       { cat: '예배·봉사', title: '시무장로 체크리스트', desc: '강단·성찬·영접 현장 점검', minRole: 3, icon: '📋', sheet: 'Checklists_Log', formFields: ['예배/집회구분', '특이사항'] },
       { cat: '예배·봉사', title: '시무집사 체크리스트', desc: '본당·헌금·안내·시건 점검', minRole: 3, icon: '🛡️', sheet: 'Checklists_Log', formFields: ['예배/집회구분', '특이사항'] },
       { cat: '예배·봉사', title: '교회안전관리 점검', desc: '소방·전기·가스 안전기록', minRole: 3, icon: '🧯', sheet: 'Checklists_Log', formFields: ['예배/집회구분', '특이사항'] },
 
-      // 행정·재정·Wiki (8종)
       { cat: '행정·재정', title: '다산교회 Wiki', desc: '행정 내규·장비 운영 백과', minRole: 2, icon: '📖', url: CONFIG.FOLDERS.MANUAL },
       { cat: '행정·재정', title: '지불결의서 현황', desc: '온라인 기안 및 결재 추적', minRole: 3, icon: '🧾', sheet: 'Payment_Vouchers', formFields: ['부서명', '지출항목', '청구금액'] },
       { cat: '행정·재정', title: '부서별 지출관리', desc: '연간 예산 대비 집행률 조회', minRole: 3, icon: '📊', sheet: 'Dept_Budgets' },
