@@ -1090,6 +1090,210 @@
       }
     }
 
+    // [12/03 예정] 출석현황(화/금/안) 모듈 — 모바일 출석체크, 예배구분 필터 및 실시간 DB 연동
+    class AttendanceModule extends BaseModule {
+      constructor(opts = {}) {
+        super({
+          menuId: opts.menuId || 'ATTENDANCE_LOG',
+          title: opts.title || '출석현황 (화/금/안)',
+          minRole: opts.minRole || 2,
+          viewMode: opts.viewMode || getViewMode(),
+          container: opts.container || null
+        });
+      }
+
+      async fetchData() {
+        const sampleRecords = [
+          { date: '2026-11-21', service: '안식일예배', member: '성도A', groupNo: '1반', status: '출석' },
+          { date: '2026-11-21', service: '안식일예배', member: '성도B', groupNo: '2반', status: '출석' },
+          { date: '2026-11-24', service: '화요예배', member: '성도C', groupNo: '3반', status: '출석' },
+          { date: '2026-11-20', service: '금요저녁예배', member: '성도D', groupNo: '4반', status: '온라인' }
+        ];
+        if (!currentIdToken) {
+          return { records: sampleRecords, isLive: false };
+        }
+        try {
+          const res = await callApi('querySheet', { sheetName: 'Attendance_Log' });
+          if (res && res.ok && Array.isArray(res.rows) && res.rows.length) {
+            return {
+              records: res.rows.slice(0, 30).map(r => ({
+                date: r['일자'] || r['출석일'] || r['date'] || '2026-11-21',
+                service: r['예배구분(화/금/안)'] || r['예배구분'] || r['service'] || '안식일예배',
+                member: sanitizeMemberName(r['성명'] || r['이름'] || r['member'] || '성도'),
+                groupNo: r['소그룹반'] || r['반'] || r['groupNo'] || '-',
+                status: r['출석상태'] || r['status'] || '출석'
+              })),
+              isLive: true
+            };
+          }
+        } catch (err) {
+          console.error('AttendanceModule fetchData error:', err);
+        }
+        return { records: sampleRecords, isLive: false };
+      }
+
+      computeStats(records) {
+        const list = records || [];
+        const total = list.length;
+        const satCount = list.filter(r => String(r.service).includes('안식일')).length;
+        const tueCount = list.filter(r => String(r.service).includes('화요')).length;
+        const friCount = list.filter(r => String(r.service).includes('금요')).length;
+        return { total, satCount, tueCount, friCount };
+      }
+
+      renderCheckFormHtml() {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        return `
+          <form onsubmit="handleAttendanceSubmit(event)" class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-navy dark:text-gold text-xs">✅ 화요·금요·안식일 모바일 출석체크</span>
+              <span class="text-[11px] text-gray-500 dark:text-slate-400">Attendance_Log 연동</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">일자</label>
+                <input type="date" name="일자" value="${todayStr}" required class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">예배구분</label>
+                <select name="예배구분(화/금/안)" required class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                  <option value="안식일예배">안식일예배 (토 10:00)</option>
+                  <option value="화요예배">화요예배 (화 19:30)</option>
+                  <option value="금요저녁예배">금요저녁예배 (금 19:30)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">소그룹반</label>
+                <select name="소그룹반" class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                  <option value="1반">1반</option>
+                  <option value="2반">2반</option>
+                  <option value="3반">3반</option>
+                  <option value="4반">4반</option>
+                  <option value="5반">5반</option>
+                  <option value="6반">6반</option>
+                  <option value="7반">7반</option>
+                  <option value="8반">8반</option>
+                  <option value="9반">9반</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">참석형태</label>
+                <select name="출석상태" class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs">
+                  <option value="출석">현장 출석</option>
+                  <option value="온라인">온라인 참여</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="bg-navy dark:bg-gold text-white dark:text-navyDark font-bold text-xs px-4 py-2 rounded-lg hover:opacity-90 transition">
+              출석 체크 등록하기
+            </button>
+          </form>
+        `;
+      }
+
+      renderSummaryCards(stats) {
+        return `
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+            <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+              <div class="text-[11px] text-gray-500 dark:text-slate-400">조회 건수</div>
+              <div class="text-sm font-bold text-navy dark:text-gold">${stats.total}건</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+              <div class="text-[11px] text-gray-500 dark:text-slate-400">안식일예배</div>
+              <div class="text-sm font-bold text-navy dark:text-white">${stats.satCount}건</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+              <div class="text-[11px] text-gray-500 dark:text-slate-400">화요예배</div>
+              <div class="text-sm font-bold text-navy dark:text-white">${stats.tueCount}건</div>
+            </div>
+            <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+              <div class="text-[11px] text-gray-500 dark:text-slate-400">금요저녁예배</div>
+              <div class="text-sm font-bold text-navy dark:text-white">${stats.friCount}건</div>
+            </div>
+          </div>
+        `;
+      }
+
+      renderDesktop(data) {
+        const records = data.records || [];
+        const stats = this.computeStats(records);
+        return `
+          <div class="space-y-4">
+            ${this.renderCheckFormHtml()}
+            ${this.renderSummaryCards(stats)}
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-xs text-navy dark:text-white">📊 최근 예배별 출석 기록 (화·금·안)</h4>
+              <span class="text-[11px] text-gray-500 dark:text-slate-400">${data.isLive ? '실시간 DB 연동' : '안내 샘플 / OAuth 로그인 시 실데이터 조회'}</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs border-collapse">
+                <thead>
+                  <tr class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+                    <th class="p-2 text-left font-bold">일자</th>
+                    <th class="p-2 text-left font-bold">예배구분</th>
+                    <th class="p-2 text-left font-bold">성명</th>
+                    <th class="p-2 text-center font-bold">소그룹반</th>
+                    <th class="p-2 text-center font-bold">상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${records.map(r => `
+                    <tr class="border-b border-gray-100 dark:border-slate-800">
+                      <td class="p-2">${r.date}</td>
+                      <td class="p-2 font-semibold text-navy dark:text-gold">${r.service}</td>
+                      <td class="p-2">${r.member}</td>
+                      <td class="p-2 text-center">${r.groupNo}</td>
+                      <td class="p-2 text-center"><span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 font-semibold">${r.status}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      renderMobile(data) {
+        const records = (data.records || []).slice(0, 4);
+        const stats = this.computeStats(data.records || []);
+        return `
+          <div class="space-y-3">
+            ${this.renderCheckFormHtml()}
+            ${this.renderSummaryCards(stats)}
+            <div class="space-y-2">
+              ${records.map(r => `
+                <div class="p-3 rounded-xl border border-gray-200 dark:border-slate-700 flex items-center justify-between text-xs">
+                  <div>
+                    <div class="font-bold text-navy dark:text-gold">${r.service} · ${r.member}</div>
+                    <div class="text-[11px] text-gray-500 dark:text-slate-400">${r.date} (${r.groupNo})</div>
+                  </div>
+                  <span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 font-semibold">${r.status}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    async function handleAttendanceSubmit(e) {
+      e.preventDefault();
+      if (!currentIdToken) {
+        alert('출석 체크 저장은 Google 계정 로그인 후 이용하실 수 있습니다.');
+        return;
+      }
+      const fd = new FormData(e.target);
+      const record = Object.fromEntries(fd.entries());
+      record['성명'] = sanitizeMemberName(currentUserProfile && currentUserProfile.name);
+      const res = await callApi('insertRow', { sheetName: 'Attendance_Log', record });
+      if (res && res.ok) {
+        alert('✅ 출석이 정상 등록되었습니다.');
+        await openSheetServiceModal(SERVICES.find(s => s.title === '출석현황 (화/금/안)'));
+      } else {
+        alert('등록 오류: ' + ((res && res.error) || '권한 또는 입력값을 확인해 주세요.'));
+      }
+    }
+
     async function handleBookRequestSubmit(e) {
       e.preventDefault();
       if (!currentIdToken) {
@@ -1374,6 +1578,14 @@
 
       if (srv.title === '서적신청조회') {
         const mod = new BookRequestModule({ viewMode: getViewMode() });
+        const data = await mod.fetchData();
+        body.innerHTML = getViewMode() === 'MOBILE_COMPACT' ? mod.renderMobile(data) : mod.renderDesktop(data);
+        modal.classList.remove('hidden');
+        return;
+      }
+
+      if (srv.title === '출석현황 (화/금/안)') {
+        const mod = new AttendanceModule({ viewMode: getViewMode() });
         const data = await mod.fetchData();
         body.innerHTML = getViewMode() === 'MOBILE_COMPACT' ? mod.renderMobile(data) : mod.renderDesktop(data);
         modal.classList.remove('hidden');
