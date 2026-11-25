@@ -439,16 +439,12 @@
     // =========================================================
     // 1. 시스템 설정 (Apps Script 웹 앱 URL 연동 완료)
     // =========================================================
-    const CONFIG = {
-      APPS_SCRIPT_API_URL: 'https://script.google.com/macros/s/AKfycbyeYkLPvjdToxRf8TUnOSPi3qN2osTse-GMi0ZviPebfnNbRcyJLTP9CNky3l3gV0L8/exec',
-      GOOGLE_CLIENT_ID: '214036144218-7rk41ek615sa24odk1hgn9cohv1a9nae.apps.googleusercontent.com',
-      FOLDERS: {
-        BULLETIN: 'https://drive.google.com/drive/folders/196A3OSAfcPn_EtvQ98f5mLwDrtjoxmnt',
-        GALLERY: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
-        MANUAL: 'https://drive.google.com/drive/folders/1tGIMhnbMR20R7ArNArzhVk0f4AdKcDjC',
-        RECEIPT: 'https://drive.google.com/drive/folders/1VtsX-g1p8UKwk_L540vwlvjjujXhF4iw'
-      }
-    };
+const CONFIG = {
+  API_URL: 'https://script.google.com/macros/s/AKfycbyeYkLPvjdToxRf8TUnOSPi3qN2osTse-GMi0ZviPebfnNbRcyJLTP9CNky3l3gV0L8/exec',
+  GOOGLE_CLIENT_ID: '214036144218-7rk41ek615sa24odk1hgn9cohv1a9nae.apps.googleusercontent.com',
+  ROLE_LEVEL: { '외부인': 1, '다산교회': 2, '직원': 3, '관리자': 4 }
+};
+
 
     const ROLE_LEVEL = { '외부인': 1, '다산교회': 2, '직원': 3, '관리자': 4 };
     let currentRole = '외부인';
