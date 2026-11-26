@@ -307,24 +307,31 @@ export class TalentModule {
           return;
         }
 
-        const fd = new FormData(form);
-        const opt = select?.selectedOptions?.[0];
-        const pts = Number(fd.get('points') || opt?.dataset?.pts || 10);
-        const partName = opt?.dataset?.part || this.selectedPart || '';
-        const accountSubject = opt?.dataset?.account || '';
-        const deptName = opt?.dataset?.dept || partName;
-        const user = state.currentUserProfile || {};
+        const txId = 'TL-' + Date.now();
+        const activityDate = fd.get('activity_date') || new Date().toISOString().slice(0, 10);
+        const memoText = fd.get('memo') ? `${fd.get('memo')} (${activityDate})` : activityDate;
 
         const payload = {
-          talent_id: 'TL-' + Date.now(),
-          activity_date: fd.get('activity_date'),
+          // 실제 Talent_Ledger 시트 헤더 기준 키
+          Tx_ID: txId,
+          User_ID: user.userId || user.id || '',
+          '성명': user.name || '성도',
+          '활동구분': fd.get('activity_type'),
+          '증빙메모': memoText,
+          '신청달란트': pts,
+          '승인여부': '승인대기',
+          '승인자': '',
+
+          // 모듈 내부 표시 및 호환용 키
+          talent_id: txId,
+          activity_date: activityDate,
           user_name: user.name || '성도',
           user_email: user.email || '',
           part_name: partName,
           dept_name: deptName,
           account_subject: accountSubject,
           activity_type: fd.get('activity_type'),
-          memo: fd.get('memo') || '',
+          memo: memoText,
           points: pts,
           status: '승인대기',
           created_at: new Date().toISOString()
@@ -355,10 +362,14 @@ export class TalentModule {
 
         try {
           const res = await updateRow(this.sheetName, {
-            keyField: 'talent_id',
-            keyValue: talentId,
-            updates: { status: '승인완료', approved_at: new Date().toISOString() }
-          });
+              keyField: 'Tx_ID',
+              keyValue: talentId,
+              updates: {
+                '승인여부': '승인완료',
+                status: '승인완료',
+                approved_at: new Date().toISOString()
+              }
+            });
           if (res && res.ok === false) {
             throw new Error(res.error || '승인 실패');
           }
