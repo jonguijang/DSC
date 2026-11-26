@@ -30,7 +30,6 @@ import {
   resetAttendanceSearch
 } from './modules/AttendanceModule.js';
 
-
 // 모듈 레지스트리 — 향후 신규 업무 모듈 추가 시 여기에 등록
 const MODULE_REGISTRY = {
   darakbang: DarakbangModule,
@@ -44,7 +43,7 @@ const MODULE_REGISTRY = {
 function renderQuickHub() {
   const favSlot = document.getElementById('quick-favorites-slot');
   const linkSlot = document.getElementById('quick-links-slot');
-  const userLv = ROLE_LEVEL[state.currentRole];
+  const userLv = ROLE_LEVEL[state.currentRole] || 1;
 
   if (favSlot) {
     const favServices = SERVICES.filter(s => state.favoriteIds.includes(s.title));
@@ -221,8 +220,12 @@ async function openSheetServiceModal(srv) {
   if (srv.moduleKey && MODULE_REGISTRY[srv.moduleKey]) {
     const ModClass = MODULE_REGISTRY[srv.moduleKey];
     const mod = new ModClass({ viewMode: getViewMode() });
-    body.innerHTML = await mod.renderHtml();
+    body.innerHTML = `<div class="py-10 text-center text-xs text-gray-500">⏳ 데이터를 불러오는 중입니다...</div>`;
     modal.classList.remove('hidden');
+    body.innerHTML = await mod.renderHtml();
+    if (typeof mod.bindEvents === 'function') {
+      mod.bindEvents(body);
+    }
     return;
   }
 
@@ -260,10 +263,11 @@ async function openSheetServiceModal(srv) {
     const container = document.getElementById('modal-sheet-data');
     if (res && res.ok && res.rows && res.rows.length) {
       const isUsersMaster = srv.sheet === 'Users_Master';
+      const visibleKeys = Object.keys(res.rows[0]).filter(k => !k.startsWith('_'));
       const groupColKey = isUsersMaster
-        ? (Object.keys(res.rows[0]).find(k => k.includes('소속반')) || '소속반(1~9반)')
+        ? (visibleKeys.find(k => k.includes('소속반')) || '소속반(1~9반)')
         : '';
-      const cols = Object.keys(res.rows[0]).slice(0, 5);
+      const cols = visibleKeys.slice(0, 5);
       container.innerHTML = `
         <div class="overflow-x-auto text-left">
           ${isUsersMaster ? `<div class="mb-2 text-[11px] text-navy dark:text-gold font-semibold">📌 SmallGroup_Master 반명 목록(${getSmallGroupNames().join(', ')}) 기준으로 소속반을 선택할 수 있습니다.</div>` : ''}
@@ -343,7 +347,7 @@ async function handleServiceClick(index) {
 
 function toggleFavorite(title, ev) {
   if (ev) ev.stopPropagation();
-  if (ROLE_LEVEL[state.currentRole] < 2) {
+  if ((ROLE_LEVEL[state.currentRole] || 1) < 2) {
     alert('Quick 즐겨찾기(★) 저장은 성도(2. 다산교회) 이상 로그인 후 이용하실 수 있습니다.');
     return;
   }
@@ -382,9 +386,15 @@ function renderPersonalizedCard() {
   } else {
     const profile = state.currentUserProfile;
     const isRealAuth = Boolean(state.currentIdToken) && Boolean(profile);
-    const talentDisplay = isRealAuth && profile.talent !== undefined ? `${profile.talent} P` : '미리보기';
-    const groupDisplay = isRealAuth ? (profile.groupName || profile['소속반'] || profile.groupNo || '미배정') : '소속반';
-    const attDisplay = isRealAuth && profile.attendanceRate ? profile.attendanceRate : '로그인 후 확인';
+    const talentDisplay = isRealAuth
+      ? `${Number(profile.talent || 0).toLocaleString()} T`
+      : '미리보기';
+    const groupDisplay = isRealAuth
+      ? (profile.groupName || profile['소속반'] || profile.groupNo || '미배정')
+      : '소속반';
+    const attDisplay = isRealAuth
+      ? (profile.attendanceRate || '0회 출석')
+      : '로그인 후 확인';
     const offeringIdx = SERVICES.findIndex(s => s.title === '헌금내역 조회');
     const talentIdx = SERVICES.findIndex(s => s.title === '달란트 관리');
 
@@ -515,17 +525,25 @@ function handleAuthClick() {
       client_id: CONFIG.GOOGLE_CLIENT_ID,
       callback: async (response) => {
         state.currentIdToken = response.credential;
-        const res = await callApi('getSessionProfile');
-        if (res && res.ok && res.user) {
-          state.currentUserProfile = res.user;
-          await loadSmallGroupMaster();
-          const resolvedRole = res.user.role || '외부인';
-          const roleEl = document.getElementById('role-preview');
-          if (roleEl) roleEl.value = resolvedRole;
-          changePreviewRole(resolvedRole);
-          alert(`${sanitizeMemberName(res.user.name)}님 환영합니다! (${resolvedRole} 등급으로 로그인되었습니다)`);
-        } else {
-          alert((res && res.error) || '로그인 검증에 실패했습니다.');
+        try {
+          const res = await callApi('getSessionProfile');
+          if (res && res.ok && res.user) {
+            state.currentUserProfile = res.user;
+            await loadSmallGroupMaster();
+            const resolvedRole = res.user.role || '외부인';
+            const roleEl = document.getElementById('role-preview');
+            if (roleEl) roleEl.value = resolvedRole;
+            changePreviewRole(resolvedRole);
+            alert(`${sanitizeMemberName(res.user.name)}님 환영합니다! (${resolvedRole} 등급으로 로그인되었습니다)`);
+          } else {
+            state.currentIdToken = '';
+            state.currentUserProfile = null;
+            alert((res && res.error) || '로그인 검증에 실패했습니다.');
+          }
+        } catch (err) {
+          state.currentIdToken = '';
+          state.currentUserProfile = null;
+          alert('로그인 처리 중 오류가 발생했습니다: ' + err.message);
         }
       }
     });
@@ -592,7 +610,7 @@ async function handleAttendanceSubmit(e) {
 
   const actorName = (state.currentUserProfile && state.currentUserProfile.name) || '성도';
   const actorUserId = (state.currentUserProfile && (state.currentUserProfile.userId || state.currentUserProfile.id || state.currentUserProfile.email)) || '';
-  const canProxyRegister = ROLE_LEVEL[state.currentRole] >= 3;
+  const canProxyRegister = (ROLE_LEVEL[state.currentRole] || 1) >= 3;
   const proxyTargetName = canProxyRegister ? String(formData['대상성명'] || '').trim() : '';
   const proxyTargetUserId = canProxyRegister ? String(formData['대상User_ID'] || '').trim() : '';
 
@@ -630,21 +648,24 @@ async function handleAttendanceSubmit(e) {
 
 async function handleUserGroupChange(userKey, colName, newGroup) {
   if (!state.currentIdToken) return;
-  if (state.currentUserProfile && (
-    state.currentUserProfile.userId === userKey ||
-    state.currentUserProfile.email === userKey ||
-    state.currentUserProfile.name === userKey
-  )) {
-    state.currentUserProfile.groupName = newGroup;
-    state.currentUserProfile['소속반'] = newGroup;
-  }
   try {
     const res = await callApi('updateUserGroup', { userKey, columnName: colName, groupName: newGroup });
     if (res && res.ok) {
+      if (state.currentUserProfile && (
+        state.currentUserProfile.userId === userKey ||
+        state.currentUserProfile.email === userKey ||
+        state.currentUserProfile.name === userKey
+      )) {
+        state.currentUserProfile.groupName = newGroup;
+        state.currentUserProfile['소속반'] = newGroup;
+        renderPersonalizedCard();
+      }
       alert(`✅ 소속반이 '${newGroup || '미배정'}'(으)로 반영되었습니다.`);
+    } else {
+      alert('소속반 변경 오류: ' + ((res && res.error) || '권한 또는 서버 설정을 확인해 주세요.'));
     }
   } catch (e) {
-    console.warn('updateUserGroup 호출 참고:', e);
+    alert('소속반 변경 중 오류가 발생했습니다: ' + e.message);
   }
 }
 

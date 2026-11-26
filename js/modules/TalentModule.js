@@ -1,6 +1,39 @@
-import { CONFIG } from '../core/config.js';
+import { CONFIG, ROLE_LEVEL } from '../core/config.js';
 import { state } from '../core/state.js';
-import { callApi, updateRow } from '../core/api.js';
+import { callApi } from '../core/api.js';
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatKstDate(raw, fallbackMemo = '') {
+  if (raw) {
+    const str = String(raw).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+      if (str.includes('T') && str.endsWith('Z')) {
+        const d = new Date(str);
+        if (!Number.isNaN(d.getTime())) {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 10);
+        }
+      }
+      return str.slice(0, 10);
+    }
+    return str;
+  }
+  const memoMatch = String(fallbackMemo || '').match(/(\d{4}-\d{2}-\d{2})/);
+  return memoMatch ? memoMatch[1] : '-';
+}
+
+function getTodayKst() {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
 
 export class TalentModule {
   constructor(options = {}) {
@@ -11,7 +44,7 @@ export class TalentModule {
     this.viewMode = options.viewMode || 'PC_DETAIL';
     this.selectedPart = '전체';
     this.records = [];
-    this.masterSourceStatus = 'default'; // 'sheet' | 'default'
+    this.masterSourceStatus = 'default';
 
     this.defaultPresets = [
       { code: 'TL-SS-01', part: '안식일학교', label: '안식일학교 정각출석', points: 10, payType: '고정', accountSubject: '2503 안식일학교', deptName: '안식일학교' },
@@ -120,23 +153,29 @@ export class TalentModule {
   }
 
   buildMarkup() {
-    const roleLv = Number((CONFIG.ROLE_LEVEL && CONFIG.ROLE_LEVEL[state.currentRole]) || 1);
+    const roleMap = ROLE_LEVEL || CONFIG?.ROLE_LEVEL || { '외부인': 1, '다산교회': 2, '직원': 3, '관리자': 4 };
+    const roleLv = Number(roleMap[state.currentRole] || 1);
     const user = state.currentUserProfile || {};
     const isPreviewOnly = !state.currentIdToken;
     const canApply = roleLv >= 2;
     const isApprover = roleLv >= 3;
 
-    const myRecords = this.records.filter(r =>
-      (user.userId && (r.User_ID === user.userId || r.user_id === user.userId)) ||
-      (user.email && (r.user_email === user.email || r['이메일'] === user.email || r.Google_Email === user.email)) ||
-      (user.name && (r.user_name === user.name || r['성명'] === user.name))
-    );
+    const uId = String(user.userId || '').trim();
+    const uEmail = String(user.email || '').toLowerCase().trim();
+    const uName = String(user.name || '').trim();
 
-    const getStatus = (r) => r['승인여부'] || r.status || r['승인상태'] || '승인대기';
+    const myRecords = this.records.filter(r => {
+      const rUid = String(r.User_ID || r.user_id || '').trim();
+      const rEmail = String(r.Google_Email || r.user_email || r['이메일'] || '').toLowerCase().trim();
+      const rName = String(r['성명'] || r.user_name || '').trim();
+      return (uId && rUid === uId) || (uEmail && rEmail === uEmail) || (uName && rName === uName);
+    });
+
+    const getStatus = (r) => String(r['승인여부'] || r.status || r['승인상태'] || '승인대기').trim();
 
     const myApprovedPoints = myRecords
       .filter(r => getStatus(r) === '승인완료')
-      .reduce((sum, r) => sum + Number(r['신청달란트'] || r.points || r['달란트'] || 0), 0);
+      .reduce((sum, r) => sum + (Number(r['신청달란트'] ?? r.points ?? r['달란트'] ?? 0) || 0), 0);
 
     const pendingCount = this.records.filter(r => getStatus(r) === '승인대기').length;
     const listToShow = isApprover ? this.records : myRecords;
@@ -145,13 +184,13 @@ export class TalentModule {
     const partTabsHtml = parts.map(pt => {
       const active = this.selectedPart === pt;
       return `
-        <button type="button" data-talent-part="${pt}"
+        <button type="button" data-talent-part="${escapeHtml(pt)}"
           class="tl-part-tab px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
             active
               ? 'bg-amber-600 text-white shadow-sm'
               : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
           }">
-          ${pt}
+          ${escapeHtml(pt)}
         </button>`;
     }).join('');
 
@@ -165,14 +204,19 @@ export class TalentModule {
              : '등록된 달란트 내역이 없습니다. 위 폼에서 신앙활동을 등록해 보세요!'}
          </div>`
       : listToShow.map((item, idx) => {
-          const id = item.Tx_ID || item.talent_id || item.id || `row-${idx}`;
-          const date = item.activity_date || item['신청일시'] || item['일자'] || '-';
-          const name = item['성명'] || item.user_name || '-';
-          const part = item.part_name || item['파트'] || '';
-          const activity = item['활동구분'] || item.activity_type || item['활동내역'] || '-';
-          const memo = item['증빙메모'] || item.memo || '';
-          const accountSubject = item.account_subject || item['계정과목'] || '';
-          const pts = Number(item['신청달란트'] || item.points || item['달란트'] || 0);
+          const txId = String(item.Tx_ID || item.tx_id || item.talent_id || item.id || '').trim();
+          const rowNumber = Number(item._rowNumber || (idx + 2));
+          const memo = String(item['증빙메모'] || item.memo || '').trim();
+          const date = formatKstDate(
+            item.activity_date || item['활동일자'] || item['신청일시'] || item['등록일시'] || item['일자'] || item.created_at,
+            memo
+          );
+          const name = String(item['성명'] || item.user_name || '-').trim();
+          const part = String(item.part_name || item['파트'] || '').trim();
+          const activity = String(item['활동구분'] || item.activity_type || item['활동내역'] || '-').trim();
+          const accountSubject = String(item.account_subject || item['계정과목'] || '').trim();
+          const approver = String(item['승인자'] || '').trim();
+          const pts = Number(item['신청달란트'] ?? item.points ?? item['달란트'] ?? 0) || 0;
           const status = getStatus(item);
           const isApproved = status === '승인완료';
 
@@ -180,24 +224,25 @@ export class TalentModule {
             <div class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               <div class="space-y-0.5">
                 <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="text-xs font-semibold text-slate-400">${date}</span>
-                  <span class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">${name}</span>
-                  ${part ? `<span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300">${part}</span>` : ''}
+                  <span class="text-xs font-semibold text-slate-400">${escapeHtml(date)}</span>
+                  <span class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">${escapeHtml(name)}</span>
+                  ${part ? `<span class="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300">${escapeHtml(part)}</span>` : ''}
                   <span class="px-2 py-0.5 rounded-full text-xs font-bold ${
                     isApproved
                       ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200'
                       : 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200'
-                  }">${status}</span>
+                  }">${escapeHtml(status)}</span>
+                  ${isApproved && approver ? `<span class="text-[11px] text-slate-400">(승인: ${escapeHtml(approver)})</span>` : ''}
                 </div>
-                <p class="text-xs text-slate-600 dark:text-slate-300">${activity}</p>
-                ${memo ? `<p class="text-[11px] text-slate-500 dark:text-slate-400">메모: ${memo}</p>` : ''}
-                ${accountSubject ? `<p class="text-[11px] text-slate-400">비용계정: ${accountSubject}</p>` : ''}
+                <p class="text-xs text-slate-600 dark:text-slate-300">${escapeHtml(activity)}</p>
+                ${memo ? `<p class="text-[11px] text-slate-500 dark:text-slate-400">메모: ${escapeHtml(memo)}</p>` : ''}
+                ${accountSubject ? `<p class="text-[11px] text-slate-400">비용계정: ${escapeHtml(accountSubject)}</p>` : ''}
               </div>
               <div class="flex items-center gap-2">
-                <span class="text-xs sm:text-sm font-extrabold text-amber-600 dark:text-amber-400">+${pts} T</span>
+                <span class="text-xs sm:text-sm font-extrabold text-amber-600 dark:text-amber-400">+${pts.toLocaleString()} T</span>
                 ${isApprover && !isApproved ? `
-                  <button type="button" data-approve-id="${id}"
-                    class="btn-approve-talent px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition">
+                  <button type="button" data-approve-id="${escapeHtml(txId)}" data-row-number="${rowNumber}"
+                    class="btn-approve-talent px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50 transition">
                     승인
                   </button>` : ''}
               </div>
@@ -244,8 +289,8 @@ export class TalentModule {
                 <select id="talent-preset" name="activity_type" required
                   class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm">
                   ${visiblePresets.map((p, i) => `
-                    <option value="${p.label}" data-idx="${i}" data-pts="${p.points}" data-part="${p.part}" data-account="${p.accountSubject || ''}" data-dept="${p.deptName || ''}">
-                      [${p.part}] ${p.label} (+${p.points}T)${p.accountSubject ? ` · ${p.accountSubject}` : ''}
+                    <option value="${escapeHtml(p.label)}" data-idx="${i}" data-pts="${p.points}" data-part="${escapeHtml(p.part)}" data-account="${escapeHtml(p.accountSubject || '')}" data-dept="${escapeHtml(p.deptName || '')}">
+                      [${escapeHtml(p.part)}] ${escapeHtml(p.label)} (+${p.points}T)${p.accountSubject ? ` · ${escapeHtml(p.accountSubject)}` : ''}
                     </option>
                   `).join('')}
                 </select>
@@ -257,7 +302,7 @@ export class TalentModule {
               </div>
               <div>
                 <label class="block text-xs font-semibold mb-1">활동 일자 *</label>
-                <input type="date" name="activity_date" required value="${new Date().toISOString().slice(0, 10)}"
+                <input type="date" name="activity_date" required value="${getTodayKst()}"
                   class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm" />
               </div>
             </div>
@@ -267,7 +312,7 @@ export class TalentModule {
                 class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm" />
             </div>
             <div class="flex justify-end">
-              <button type="submit" class="px-4 py-2 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition">
+              <button type="submit" id="btn-submit-talent" class="px-4 py-2 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 disabled:opacity-50 transition">
                 달란트 적립 신청하기
               </button>
             </div>
@@ -286,6 +331,10 @@ export class TalentModule {
   bindEvents(containerEl) {
     const root = containerEl || document.getElementById('modal-body');
     if (!root) return;
+
+    const moduleRoot = root.querySelector('#talent-module-root');
+    if (!moduleRoot || moduleRoot.dataset.bound === '1') return;
+    moduleRoot.dataset.bound = '1';
 
     root.querySelectorAll('.tl-part-tab').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -312,54 +361,68 @@ export class TalentModule {
           return;
         }
 
-        const fd = new FormData(form);
-        const opt = select?.selectedOptions?.[0];
-        const pts = Number(fd.get('points') || opt?.dataset?.pts || 10);
-        const partName = opt?.dataset?.part || this.selectedPart || '';
-        const accountSubject = opt?.dataset?.account || '';
-        const deptName = opt?.dataset?.dept || partName;
-        const user = state.currentUserProfile || {};
-
-        const txId = 'TL-' + Date.now();
-        const activityDate = String(fd.get('activity_date') || new Date().toISOString().slice(0, 10));
-        const activityType = String(fd.get('activity_type') || '');
-        const rawMemo = String(fd.get('memo') || '').trim();
-        const memoText = rawMemo ? `${rawMemo} (${activityDate})` : activityDate;
-
-        const payload = {
-          Tx_ID: txId,
-          User_ID: user.userId || user.id || '',
-          '성명': user.name || '성도',
-          '활동구분': activityType,
-          '증빙메모': memoText,
-          '신청달란트': pts,
-          '승인여부': '승인대기',
-          '승인자': '',
-
-          talent_id: txId,
-          activity_date: activityDate,
-          user_name: user.name || '성도',
-          user_email: user.email || '',
-          part_name: partName,
-          dept_name: deptName,
-          account_subject: accountSubject,
-          activity_type: activityType,
-          memo: memoText,
-          points: pts,
-          status: '승인대기',
-          created_at: new Date().toISOString()
-        };
+        const submitBtn = form.querySelector('#btn-submit-talent');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = '접수 중...';
+        }
 
         try {
+          const fd = new FormData(form);
+          const opt = select?.selectedOptions?.[0];
+          const pts = Number(fd.get('points') || opt?.dataset?.pts || 10);
+          const partName = opt?.dataset?.part || this.selectedPart || '';
+          const accountSubject = opt?.dataset?.account || '';
+          const deptName = opt?.dataset?.dept || partName;
+          const user = state.currentUserProfile || {};
+
+          const txId = 'TL-' + Date.now();
+          const activityDate = String(fd.get('activity_date') || getTodayKst());
+          const activityType = String(fd.get('activity_type') || '');
+          const rawMemo = String(fd.get('memo') || '').trim();
+          const memoText = rawMemo ? `${rawMemo} (${activityDate})` : activityDate;
+
+          const payload = {
+            Tx_ID: txId,
+            User_ID: user.userId || user.id || '',
+            Google_Email: user.email || '',
+            '성명': user.name || '성도',
+            '활동구분': activityType,
+            '증빙메모': memoText,
+            '신청달란트': pts,
+            '승인여부': '승인대기',
+            '승인자': '',
+            '활동일자': activityDate,
+            '파트': partName,
+            '계정과목': accountSubject,
+
+            talent_id: txId,
+            activity_date: activityDate,
+            user_name: user.name || '성도',
+            user_email: user.email || '',
+            part_name: partName,
+            dept_name: deptName,
+            account_subject: accountSubject,
+            activity_type: activityType,
+            memo: memoText,
+            points: pts,
+            status: '승인대기',
+            created_at: new Date().toISOString()
+          };
+
           const res = await callApi('insertRow', { sheetName: this.sheetName, record: payload });
-          if (res && res.ok === false) {
-            throw new Error(res.error || '신청 실패');
+          if (!res || res.ok === false) {
+            throw new Error((res && res.error) || '신청 실패');
           }
           alert(`달란트 적립(+${pts}T) 신청이 접수되었습니다.`);
           await this.loadRecords();
           this.refreshInModal(root);
         } catch (err) {
           alert('달란트 신청 중 오류가 발생했습니다: ' + err.message);
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '달란트 적립 신청하기';
+          }
         }
       });
     }
@@ -370,30 +433,40 @@ export class TalentModule {
           alert('현재 운영진 미리보기 상태입니다. 실제 승인 반영은 Google 로그인 후 직원/관리자 권한으로 진행됩니다.');
           return;
         }
-        const talentId = btn.dataset.approveId;
+        const talentId = String(btn.dataset.approveId || '').trim();
+        const rowNumber = Number(btn.dataset.rowNumber || 0);
         if (!confirm('해당 달란트 적립 건을 [승인완료] 처리하시겠습니까?')) return;
 
         const approverName = state.currentUserProfile?.name || '';
+        const nowKst = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+
+        btn.disabled = true;
+        btn.textContent = '처리중...';
 
         try {
-          const res = await updateRow(this.sheetName, {
+          const res = await callApi('updateRow', {
+            sheetName: this.sheetName,
             keyField: 'Tx_ID',
             keyValue: talentId,
+            rowNumber: rowNumber,
             updates: {
               '승인여부': '승인완료',
               '승인자': approverName,
+              '승인일시': nowKst,
               status: '승인완료',
               approved_at: new Date().toISOString()
             }
           });
-          if (res && res.ok === false) {
-            throw new Error(res.error || '승인 실패');
+          if (!res || res.ok === false) {
+            throw new Error((res && res.error) || '승인 실패');
           }
           alert('달란트 승인이 완료되었습니다.');
           await this.loadRecords();
           this.refreshInModal(root);
         } catch (err) {
           alert('승인 처리 중 오류가 발생했습니다: ' + err.message);
+          btn.disabled = false;
+          btn.textContent = '승인';
         }
       });
     });
