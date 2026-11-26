@@ -51,6 +51,22 @@ export function validateAttendanceDateAndService(dateStr, serviceName) {
   return { valid: true, hardBlock: false, message: '' };
 }
 
+function formatDateWithWeekday(rawDate) {
+  const str = String(rawDate || '').trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(str);
+  if (!match) return { dateText: str || '-', weekdayText: '' };
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  const dt = new Date(y, m - 1, d);
+  if (Number.isNaN(dt.getTime())) return { dateText: `${y}-${match[2]}-${match[3]}`, weekdayText: '' };
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  return {
+    dateText: `${y}-${match[2]}-${match[3]}`,
+    weekdayText: `(${weekdays[dt.getDay()]})`
+  };
+}
+
 export class AttendanceModule extends BaseModule {
   constructor(opts = {}) {
     super({
@@ -60,6 +76,14 @@ export class AttendanceModule extends BaseModule {
       viewMode: opts.viewMode,
       container: opts.container
     });
+    this.filterState = {
+      keyword: '',
+      dateFrom: '',
+      dateTo: '',
+      service: 'ALL'
+    };
+    this._allRecords = [];
+    this._isLive = false;
   }
 
   async fetchData() {
@@ -70,44 +94,118 @@ export class AttendanceModule extends BaseModule {
       { date: '2026-11-20', service: '금요저녁예배', member: '성도D', groupNo: '믿음반', status: '온라인' }
     ];
     if (!state.currentIdToken) {
-      return { records: sampleRecords, isLive: false };
+      this._allRecords = sampleRecords;
+      this._isLive = false;
+      return { records: this.applyFilters(sampleRecords), isLive: false };
     }
     try {
       const res = await callApi('querySheet', { sheetName: 'Attendance_Log' });
       if (res && res.ok && Array.isArray(res.rows) && res.rows.length) {
-        return {
-          records: res.rows.slice(0, 30).map(r => ({
-            recordId: r['Record_ID'] || r['recordId'] || '-',
-            date: r['예배일자'] || r['일자'] || r['출석일'] || r['date'] || '-',
-            service: r['예배구분(화/금/안)'] || r['예배구분'] || r['service'] || '안식일예배',
-            userId: r['User_ID'] || r['userId'] || '-',
-            member: sanitizeMemberName(r['성명'] || r['이름'] || r['member'] || '성도'),
-            groupNo: r['소속반'] || r['소그룹반'] || r['반'] || r['groupNo'] || '-',
-            status: r['출석상태'] || r['status'] || '출석',
-            enteredBy: r['입력자'] || r['enteredBy'] || '-'
-          })),
-          isLive: true
-        };
+        const mapped = res.rows.slice(0, 100).map(r => ({
+          recordId: r['Record_ID'] || r['recordId'] || '-',
+          date: String(r['예배일자'] || r['일자'] || r['출석일'] || r['date'] || '-').slice(0, 10),
+          service: r['예배구분(화/금/안)'] || r['예배구분'] || r['service'] || '안식일예배',
+          userId: r['User_ID'] || r['userId'] || '-',
+          member: sanitizeMemberName(r['성명'] || r['이름'] || r['member'] || '성도'),
+          groupNo: r['소속반'] || r['소그룹반'] || r['반'] || r['groupNo'] || '-',
+          status: r['출석상태'] || r['status'] || '출석',
+          enteredBy: r['입력자'] || r['enteredBy'] || '-'
+        }));
+        this._allRecords = mapped;
+        this._isLive = true;
+        return { records: this.applyFilters(mapped), isLive: true };
       }
     } catch (err) {
       console.error('AttendanceModule fetchData error:', err);
     }
-    return { records: sampleRecords, isLive: false };
+    this._allRecords = sampleRecords;
+    this._isLive = false;
+    return { records: this.applyFilters(sampleRecords), isLive: false };
+  }
+
+  applyFilters(records) {
+    const kw = String(this.filterState.keyword || '').trim().toLowerCase();
+    const from = String(this.filterState.dateFrom || '').trim();
+    const to = String(this.filterState.dateTo || '').trim();
+    const svc = String(this.filterState.service || 'ALL').trim();
+
+    return (records || []).filter(r => {
+      const d = String(r.date || '').slice(0, 10);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      if (svc !== 'ALL' && !String(r.service || '').includes(svc)) return false;
+      if (kw) {
+        const hay = `${d} ${r.service || ''} ${r.member || ''} ${r.groupNo || ''} ${r.status || ''}`.toLowerCase();
+        if (!hay.includes(kw)) return false;
+      }
+      return true;
+    });
   }
 
   computeStats(records) {
     const list = records || [];
+    const dates = list.map(r => String(r.date || '').slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+    const latestDate = dates.length ? dates[dates.length - 1] : '-';
+    const oldestDate = dates.length ? dates[0] : '-';
     return {
       total: list.length,
       satCount: list.filter(r => String(r.service).includes('안식일')).length,
       tueCount: list.filter(r => String(r.service).includes('화요')).length,
-      friCount: list.filter(r => String(r.service).includes('금요')).length
+      friCount: list.filter(r => String(r.service).includes('금요')).length,
+      dateRangeText: dates.length ? (latestDate === oldestDate ? latestDate : `${oldestDate} ~ ${latestDate}`) : '-'
     };
+  }
+
+  renderSearchBarHtml() {
+    const { keyword, dateFrom, dateTo, service } = this.filterState;
+    return `
+      <div id="att-search-bar" class="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 space-y-2.5">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-bold text-xs text-navy dark:text-gold">🔎 출석 기록 검색 및 일자 조회</span>
+          <button type="button" id="att-reset-filter-btn"
+            class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-700">
+            초기화
+          </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <div class="sm:col-span-2">
+            <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">검색어 (성명·소그룹반·일자·상태)</label>
+            <input id="att-search-keyword" type="text" value="${keyword.replace(/"/g, '&quot;')}"
+              placeholder="예: 성도A, 겸손반, 2026-11-21, 출석"
+              class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950 text-xs" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">시작일</label>
+            <input id="att-date-from" type="date" value="${dateFrom}"
+              class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950 text-xs" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-gray-600 dark:text-slate-300 mb-1">종료일</label>
+            <input id="att-date-to" type="date" value="${dateTo}"
+              class="w-full px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950 text-xs" />
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="text-[11px] font-semibold text-gray-600 dark:text-slate-300">예배구분:</span>
+            <select id="att-filter-service"
+              class="px-2.5 py-1 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950 text-xs">
+              <option value="ALL"${service === 'ALL' ? ' selected' : ''}>전체 (화/금/안/특별)</option>
+              <option value="화요"${service === '화요' ? ' selected' : ''}>화요예배</option>
+              <option value="금요"${service === '금요' ? ' selected' : ''}>금요저녁예배</option>
+              <option value="안식일"${service === '안식일' ? ' selected' : ''}>안식일예배</option>
+              <option value="특별"${service === '특별' ? ' selected' : ''}>특별집회</option>
+            </select>
+          </div>
+          <div id="att-filter-count" class="text-[11px] font-bold text-navy dark:text-gold"></div>
+        </div>
+      </div>`;
   }
 
   renderCheckFormHtml() {
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayInfo = formatDateWithWeekday(todayStr);
     const canProxyRegister = ROLE_LEVEL[state.currentRole] >= 3;
     const selfName = sanitizeMemberName((state.currentUserProfile && state.currentUserProfile.name) || '성도');
 
@@ -115,8 +213,8 @@ export class AttendanceModule extends BaseModule {
       <form onsubmit="handleAttendanceSubmit(event)" class="p-4 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <span class="font-bold text-navy dark:text-gold text-xs">✅ 화요·금요·안식일 모바일 출석체크</span>
-          <span class="text-[11px] text-gray-500 dark:text-slate-400">
-            ${canProxyRegister ? '직원+ 권한: 성명 기준 소속반 자동매칭·대리 출석 지원' : '성명 기준 소속반 자동매칭 (Attendance_Log 연동)'}
+          <span class="text-[11px] font-semibold text-gray-600 dark:text-slate-300">
+            오늘 일자: <strong id="att-today-display">${todayInfo.dateText} ${todayInfo.weekdayText}</strong>
           </span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -145,7 +243,7 @@ export class AttendanceModule extends BaseModule {
           <div class="p-3 rounded-lg bg-amber-50/90 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
               <label class="block text-[11px] font-bold text-amber-900 dark:text-gold mb-1">
-                👵 대리 등록 대상 성명 (입력 시 소속반 자동매칭)
+                대리 등록 대상 성명 (입력 시 소속반 자동매칭)
               </label>
               <input id="att-proxy-name" type="text" name="대상성명" placeholder="비워두면 본인(${selfName})으로 등록"
                 class="w-full px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-xs" />
@@ -165,10 +263,14 @@ export class AttendanceModule extends BaseModule {
 
   renderSummaryCards(stats) {
     return `
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
         <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
           <div class="text-[11px] text-gray-500 dark:text-slate-400">조회 건수</div>
           <div class="text-sm font-bold text-navy dark:text-gold">${stats.total}건</div>
+        </div>
+        <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+          <div class="text-[11px] text-gray-500 dark:text-slate-400">조회 일자 범위</div>
+          <div class="text-xs font-bold text-navy dark:text-white mt-0.5">${stats.dateRangeText}</div>
         </div>
         <div class="p-2.5 rounded-xl bg-skyBg dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
           <div class="text-[11px] text-gray-500 dark:text-slate-400">안식일예배</div>
@@ -185,62 +287,124 @@ export class AttendanceModule extends BaseModule {
       </div>`;
   }
 
-  renderDesktop(data) {
-    const records = data.records || [];
-    const stats = this.computeStats(records);
+  renderRowsHtml(records, isMobile = false) {
+    if (!records.length) {
+      return `<div class="p-4 text-center text-xs text-gray-500 dark:text-slate-400 border border-dashed border-gray-300 dark:border-slate-700 rounded-xl">
+        검색 조건에 맞는 출석 기록이 없습니다. 검색어 또는 일자 범위를 조정해 보세요.
+      </div>`;
+    }
+
+    if (isMobile) {
+      return records.slice(0, 15).map(r => {
+        const dInfo = formatDateWithWeekday(r.date);
+        return `
+          <div class="p-3 rounded-xl border border-gray-200 dark:border-slate-700 flex items-center justify-between text-xs gap-2">
+            <div>
+              <div class="font-bold text-navy dark:text-gold">📅 ${dInfo.dateText} ${dInfo.weekdayText} · ${r.service}</div>
+              <div class="text-[11px] text-gray-600 dark:text-slate-300 mt-0.5">${r.member} (${r.groupNo})</div>
+            </div>
+            <span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 font-semibold shrink-0">${r.status}</span>
+          </div>`;
+      }).join('');
+    }
+
     return `
-      <div class="space-y-4">
-        ${this.renderCheckFormHtml()}
-        ${this.renderSummaryCards(stats)}
-        <div class="flex items-center justify-between">
-          <h4 class="font-bold text-xs text-navy dark:text-white">📊 최근 예배별 출석 기록 (화·금·안)</h4>
-          <span class="text-[11px] text-gray-500 dark:text-slate-400">${data.isLive ? '실시간 DB 연동' : '안내 샘플 / OAuth 로그인 시 실데이터 조회'}</span>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-xs border-collapse">
-            <thead>
-              <tr class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
-                <th class="p-2 text-left font-bold">일자</th>
-                <th class="p-2 text-left font-bold">예배구분</th>
-                <th class="p-2 text-left font-bold">성명</th>
-                <th class="p-2 text-center font-bold">소그룹반</th>
-                <th class="p-2 text-center font-bold">상태</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${records.map(r => `
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs border-collapse">
+          <thead>
+            <tr class="bg-gray-100 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
+              <th class="p-2 text-left font-bold">출석일자</th>
+              <th class="p-2 text-left font-bold">예배구분</th>
+              <th class="p-2 text-left font-bold">성명</th>
+              <th class="p-2 text-center font-bold">소그룹반</th>
+              <th class="p-2 text-center font-bold">상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${records.slice(0, 50).map(r => {
+              const dInfo = formatDateWithWeekday(r.date);
+              return `
                 <tr class="border-b border-gray-100 dark:border-slate-800">
-                  <td class="p-2">${r.date}</td>
+                  <td class="p-2 font-semibold text-navy dark:text-white whitespace-nowrap">${dInfo.dateText} <span class="text-gray-500 dark:text-slate-400 font-normal">${dInfo.weekdayText}</span></td>
                   <td class="p-2 font-semibold text-navy dark:text-gold">${r.service}</td>
                   <td class="p-2">${r.member}</td>
                   <td class="p-2 text-center">${r.groupNo}</td>
                   <td class="p-2 text-center"><span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 font-semibold">${r.status}</span></td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  bindFilterEvents(rootEl, isMobile) {
+    const scope = rootEl || document;
+    const kwInput = scope.querySelector('#att-search-keyword');
+    const fromInput = scope.querySelector('#att-date-from');
+    const toInput = scope.querySelector('#att-date-to');
+    const svcSelect = scope.querySelector('#att-filter-service');
+    const resetBtn = scope.querySelector('#att-reset-filter-btn');
+    const listWrap = scope.querySelector('#att-filtered-list');
+    const summaryWrap = scope.querySelector('#att-summary-wrap');
+    const countLabel = scope.querySelector('#att-filter-count');
+
+    const refreshFiltered = () => {
+      this.filterState.keyword = kwInput ? kwInput.value : '';
+      this.filterState.dateFrom = fromInput ? fromInput.value : '';
+      this.filterState.dateTo = toInput ? toInput.value : '';
+      this.filterState.service = svcSelect ? svcSelect.value : 'ALL';
+
+      const filtered = this.applyFilters(this._allRecords);
+      if (summaryWrap) summaryWrap.innerHTML = this.renderSummaryCards(this.computeStats(filtered));
+      if (listWrap) listWrap.innerHTML = this.renderRowsHtml(filtered, isMobile);
+      if (countLabel) countLabel.textContent = `검색 결과: ${filtered.length}건 / 전체 ${this._allRecords.length}건`;
+    };
+
+    kwInput?.addEventListener('input', refreshFiltered);
+    fromInput?.addEventListener('change', refreshFiltered);
+    toInput?.addEventListener('change', refreshFiltered);
+    svcSelect?.addEventListener('change', refreshFiltered);
+    resetBtn?.addEventListener('click', () => {
+      this.filterState = { keyword: '', dateFrom: '', dateTo: '', service: 'ALL' };
+      if (kwInput) kwInput.value = '';
+      if (fromInput) fromInput.value = '';
+      if (toInput) toInput.value = '';
+      if (svcSelect) svcSelect.value = 'ALL';
+      refreshFiltered();
+    });
+
+    refreshFiltered();
+  }
+
+  renderDesktop(data) {
+    const records = data.records || [];
+    const stats = this.computeStats(records);
+    setTimeout(() => this.bindFilterEvents(document.getElementById('modal-body') || document, false), 0);
+
+    return `
+      <div class="space-y-4">
+        ${this.renderCheckFormHtml()}
+        ${this.renderSearchBarHtml()}
+        <div id="att-summary-wrap">${this.renderSummaryCards(stats)}</div>
+        <div class="flex items-center justify-between">
+          <h4 class="font-bold text-xs text-navy dark:text-white">📊 예배별 출석 기록 및 일자별 조회 (화·금·안)</h4>
+          <span class="text-[11px] text-gray-500 dark:text-slate-400">${data.isLive ? '실시간 DB 연동' : '안내 샘플 / OAuth 로그인 시 실데이터 조회'}</span>
         </div>
+        <div id="att-filtered-list">${this.renderRowsHtml(records, false)}</div>
       </div>`;
   }
 
   renderMobile(data) {
-    const records = (data.records || []).slice(0, 4);
-    const stats = this.computeStats(data.records || []);
+    const records = data.records || [];
+    const stats = this.computeStats(records);
+    setTimeout(() => this.bindFilterEvents(document.getElementById('modal-body') || document, true), 0);
+
     return `
       <div class="space-y-3">
         ${this.renderCheckFormHtml()}
-        ${this.renderSummaryCards(stats)}
-        <div class="space-y-2">
-          ${records.map(r => `
-            <div class="p-3 rounded-xl border border-gray-200 dark:border-slate-700 flex items-center justify-between text-xs">
-              <div>
-                <div class="font-bold text-navy dark:text-gold">${r.service} · ${r.member}</div>
-                <div class="text-[11px] text-gray-500 dark:text-slate-400">${r.date} (${r.groupNo})</div>
-              </div>
-              <span class="px-2 py-0.5 rounded bg-skyBg dark:bg-slate-800 font-semibold">${r.status}</span>
-            </div>
-          `).join('')}
-        </div>
+        ${this.renderSearchBarHtml()}
+        <div id="att-summary-wrap">${this.renderSummaryCards(stats)}</div>
+        <div id="att-filtered-list" class="space-y-2">${this.renderRowsHtml(records, true)}</div>
       </div>`;
   }
 }
