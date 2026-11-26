@@ -195,6 +195,6 @@ export async function fetchPublicHubData() {
   }
 }
 
-async updateRow(sheetName, { keyField, keyValue, updates }) {
-  return this.request('updateRow', { sheetName, keyField, keyValue, updates });
+export async function updateRow(sheetName, { keyField, keyValue, updates }) {
+  return await callApi('updateRow', { sheetName, keyField, keyValue, updates });
 }
