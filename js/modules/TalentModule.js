@@ -307,12 +307,20 @@ export class TalentModule {
           return;
         }
 
+        const fd = new FormData(form);
+        const opt = select?.selectedOptions?.[0];
+        const pts = Number(fd.get('points') || opt?.dataset?.pts || 10);
+        const partName = opt?.dataset?.part || this.selectedPart || '';
+        const accountSubject = opt?.dataset?.account || '';
+        const deptName = opt?.dataset?.dept || partName;
+        const user = state.currentUserProfile || {};
+
         const txId = 'TL-' + Date.now();
         const activityDate = fd.get('activity_date') || new Date().toISOString().slice(0, 10);
-        const memoText = fd.get('memo') ? `${fd.get('memo')} (${activityDate})` : activityDate;
+        const rawMemo = String(fd.get('memo') || '').trim();
+        const memoText = rawMemo ? `${rawMemo} (${activityDate})` : activityDate;
 
         const payload = {
-          // 실제 Talent_Ledger 시트 헤더 기준 키
           Tx_ID: txId,
           User_ID: user.userId || user.id || '',
           '성명': user.name || '성도',
@@ -322,7 +330,6 @@ export class TalentModule {
           '승인여부': '승인대기',
           '승인자': '',
 
-          // 모듈 내부 표시 및 호환용 키
           talent_id: txId,
           activity_date: activityDate,
           user_name: user.name || '성도',
