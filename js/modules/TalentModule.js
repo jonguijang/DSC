@@ -127,15 +127,18 @@ export class TalentModule {
     const isApprover = roleLv >= 3;
 
     const myRecords = this.records.filter(r =>
-      (user.email && (r.user_email === user.email || r['이메일'] === user.email)) ||
+      (user.userId && (r.User_ID === user.userId || r.user_id === user.userId)) ||
+      (user.email && (r.user_email === user.email || r['이메일'] === user.email || r.Google_Email === user.email)) ||
       (user.name && (r.user_name === user.name || r['성명'] === user.name))
     );
 
-    const myApprovedPoints = myRecords
-      .filter(r => (r.status || r['승인상태']) === '승인완료')
-      .reduce((sum, r) => sum + Number(r.points || r['달란트'] || r['신청달란트'] || 0), 0);
+    const getStatus = (r) => r['승인여부'] || r.status || r['승인상태'] || '승인대기';
 
-    const pendingCount = this.records.filter(r => (r.status || r['승인상태']) === '승인대기').length;
+    const myApprovedPoints = myRecords
+      .filter(r => getStatus(r) === '승인완료')
+      .reduce((sum, r) => sum + Number(r['신청달란트'] || r.points || r['달란트'] || 0), 0);
+
+    const pendingCount = this.records.filter(r => getStatus(r) === '승인대기').length;
     const listToShow = isApprover ? this.records : myRecords;
 
     const parts = this.getParts();
@@ -162,14 +165,15 @@ export class TalentModule {
              : '등록된 달란트 내역이 없습니다. 위 폼에서 신앙활동을 등록해 보세요!'}
          </div>`
       : listToShow.map((item, idx) => {
-          const id = item.talent_id || item.id || `row-${idx}`;
-          const date = item.activity_date || item['일자'] || '-';
-          const name = item.user_name || item['성명'] || '-';
+          const id = item.Tx_ID || item.talent_id || item.id || `row-${idx}`;
+          const date = item.activity_date || item['신청일시'] || item['일자'] || '-';
+          const name = item['성명'] || item.user_name || '-';
           const part = item.part_name || item['파트'] || '';
-          const activity = item.activity_type || item['활동내역'] || item['활동구분'] || '-';
+          const activity = item['활동구분'] || item.activity_type || item['활동내역'] || '-';
+          const memo = item['증빙메모'] || item.memo || '';
           const accountSubject = item.account_subject || item['계정과목'] || '';
-          const pts = Number(item.points || item['달란트'] || item['신청달란트'] || 0);
-          const status = item.status || item['승인상태'] || '승인대기';
+          const pts = Number(item['신청달란트'] || item.points || item['달란트'] || 0);
+          const status = getStatus(item);
           const isApproved = status === '승인완료';
 
           return `
@@ -186,6 +190,7 @@ export class TalentModule {
                   }">${status}</span>
                 </div>
                 <p class="text-xs text-slate-600 dark:text-slate-300">${activity}</p>
+                ${memo ? `<p class="text-[11px] text-slate-500 dark:text-slate-400">메모: ${memo}</p>` : ''}
                 ${accountSubject ? `<p class="text-[11px] text-slate-400">비용계정: ${accountSubject}</p>` : ''}
               </div>
               <div class="flex items-center gap-2">
@@ -316,7 +321,8 @@ export class TalentModule {
         const user = state.currentUserProfile || {};
 
         const txId = 'TL-' + Date.now();
-        const activityDate = fd.get('activity_date') || new Date().toISOString().slice(0, 10);
+        const activityDate = String(fd.get('activity_date') || new Date().toISOString().slice(0, 10));
+        const activityType = String(fd.get('activity_type') || '');
         const rawMemo = String(fd.get('memo') || '').trim();
         const memoText = rawMemo ? `${rawMemo} (${activityDate})` : activityDate;
 
@@ -324,7 +330,7 @@ export class TalentModule {
           Tx_ID: txId,
           User_ID: user.userId || user.id || '',
           '성명': user.name || '성도',
-          '활동구분': fd.get('activity_type'),
+          '활동구분': activityType,
           '증빙메모': memoText,
           '신청달란트': pts,
           '승인여부': '승인대기',
@@ -337,7 +343,7 @@ export class TalentModule {
           part_name: partName,
           dept_name: deptName,
           account_subject: accountSubject,
-          activity_type: fd.get('activity_type'),
+          activity_type: activityType,
           memo: memoText,
           points: pts,
           status: '승인대기',
@@ -367,16 +373,19 @@ export class TalentModule {
         const talentId = btn.dataset.approveId;
         if (!confirm('해당 달란트 적립 건을 [승인완료] 처리하시겠습니까?')) return;
 
+        const approverName = state.currentUserProfile?.name || '';
+
         try {
           const res = await updateRow(this.sheetName, {
-              keyField: 'Tx_ID',
-              keyValue: talentId,
-              updates: {
-                '승인여부': '승인완료',
-                status: '승인완료',
-                approved_at: new Date().toISOString()
-              }
-            });
+            keyField: 'Tx_ID',
+            keyValue: talentId,
+            updates: {
+              '승인여부': '승인완료',
+              '승인자': approverName,
+              status: '승인완료',
+              approved_at: new Date().toISOString()
+            }
+          });
           if (res && res.ok === false) {
             throw new Error(res.error || '승인 실패');
           }
