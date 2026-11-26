@@ -21,6 +21,8 @@ import { WeeklyDutyModule } from './modules/WeeklyDutyModule.js';
 import { DarakbangModule } from './modules/DarakbangModule.js';
 import { OfferingsModule } from './modules/OfferingsModule.js';
 import { BookRequestModule } from './modules/BookRequestModule.js';
+import { SmallGroupModule } from './modules/SmallGroupModule.js';
+import { TalentModule } from './modules/TalentModule.js';
 import {
   AttendanceModule,
   validateAttendanceDateAndService,
@@ -28,12 +30,15 @@ import {
   resetAttendanceSearch
 } from './modules/AttendanceModule.js';
 
+
 // 모듈 레지스트리 — 향후 신규 업무 모듈 추가 시 여기에 등록
 const MODULE_REGISTRY = {
   darakbang: DarakbangModule,
   offerings: OfferingsModule,
   bookRequest: BookRequestModule,
-  attendance: AttendanceModule
+  attendance: AttendanceModule,
+  smallGroup: SmallGroupModule,
+  talent: TalentModule
 };
 
 function renderQuickHub() {
