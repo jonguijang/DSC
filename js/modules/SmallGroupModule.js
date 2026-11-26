@@ -2,6 +2,23 @@ import { CONFIG } from '../core/config.js';
 import { state, getSmallGroupNames } from '../core/state.js';
 import { callApi } from '../core/api.js';
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getTodayYmdLocal() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export class SmallGroupModule {
   constructor(options = {}) {
     this.id = 'small-group';
@@ -53,13 +70,13 @@ export class SmallGroupModule {
     const tabsHtml = this.groups.map(g => {
       const active = this.selectedGroup === g;
       return `
-        <button type="button" data-sg-group="${g}"
+        <button type="button" data-sg-group="${escapeHtml(g)}"
           class="sg-tab px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
             active
               ? 'bg-amber-600 text-white shadow-sm'
               : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
           }">
-          ${g}
+          ${escapeHtml(g)}
         </button>`;
     }).join('');
 
@@ -67,15 +84,15 @@ export class SmallGroupModule {
       ? `<div class="p-6 text-center text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
            ${!state.currentIdToken
              ? '💡 현재 [미리보기 권한 체험 모드]입니다. Google 로그인 후 실제 소그룹 보고서 조회 및 작성이 가능합니다.'
-             : `선택한 반(${this.selectedGroup})에 등록된 소그룹 보고서가 없습니다.`}
+             : `선택한 반(${escapeHtml(this.selectedGroup)})에 등록된 소그룹 보고서가 없습니다.`}
          </div>`
       : filtered.map(item => {
-          const date = item.report_date || item['보고일자'] || item['일자'] || '-';
-          const group = item.group_name || item['소속반'] || item['소그룹반'] || item['반명'] || '-';
-          const leader = item.leader_name || item['반장'] || item['작성자'] || '-';
-          const attend = item.attendance_count || item['참석인원'] || '-';
-          const summary = item.lesson_summary || item['교과요약'] || item['활동내용'] || '';
-          const prayer = item.prayer_request || item['기도제목'] || '';
+          const date = escapeHtml(item.report_date || item['보고일자'] || item['일자'] || '-');
+          const group = escapeHtml(item.group_name || item['소속반'] || item['소그룹반'] || item['반명'] || '-');
+          const leader = escapeHtml(item.leader_name || item['반장'] || item['작성자'] || '-');
+          const attend = escapeHtml(item.attendance_count || item['참석인원'] || '-');
+          const summary = escapeHtml(item.lesson_summary || item['교과요약'] || item['활동내용'] || '');
+          const prayer = escapeHtml(item.prayer_request || item['기도제목'] || '');
 
           return `
             <div class="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
@@ -101,7 +118,7 @@ export class SmallGroupModule {
         <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-700">
           <div>
             <h3 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">안식일학교 9개반 교과·소그룹 보고서</h3>
-            <p class="text-xs text-slate-500">반명 기준(${getSmallGroupNames().join(', ')}) 교과 토의 및 중보기도를 공유합니다.</p>
+            <p class="text-xs text-slate-500">반명 기준(${escapeHtml(getSmallGroupNames().join(', '))}) 교과 토의 및 중보기도를 공유합니다.</p>
           </div>
           ${canWrite ? `
             <button type="button" id="btn-toggle-sg-form"
@@ -116,12 +133,12 @@ export class SmallGroupModule {
             <div>
               <label class="block text-xs font-semibold mb-1">소속반 선택 *</label>
               <select name="group_name" required class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm">
-                ${this.groupMeta.map(g => `<option value="${g.name}">${g.name}${g.location ? ` (${g.location})` : ''}</option>`).join('')}
+                ${this.groupMeta.map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}${g.location ? ` (${escapeHtml(g.location)})` : ''}</option>`).join('')}
               </select>
             </div>
             <div>
               <label class="block text-xs font-semibold mb-1">보고 일자 *</label>
-              <input type="date" name="report_date" required value="${new Date().toISOString().slice(0, 10)}"
+              <input type="date" name="report_date" required value="${getTodayYmdLocal()}"
                 class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm" />
             </div>
             <div>
@@ -142,7 +159,7 @@ export class SmallGroupModule {
           </div>
           <div class="flex justify-end gap-2">
             <button type="button" id="btn-cancel-sg-form" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold">취소</button>
-            <button type="submit" class="px-4 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">시트에 저장하기</button>
+            <button type="submit" id="btn-submit-sg-form" class="px-4 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 disabled:opacity-50">시트에 저장하기</button>
           </div>
         </form>
 
@@ -155,6 +172,10 @@ export class SmallGroupModule {
   bindEvents(containerEl) {
     const root = containerEl || document.getElementById('modal-body');
     if (!root) return;
+
+    const moduleRoot = root.querySelector('#small-group-module-root');
+    if (!moduleRoot || moduleRoot.dataset.bound === '1') return;
+    moduleRoot.dataset.bound = '1';
 
     root.querySelectorAll('.sg-tab').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -177,6 +198,11 @@ export class SmallGroupModule {
     if (form) {
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const submitBtn = form.querySelector('#btn-submit-sg-form');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = '저장 중...';
+        }
         const fd = new FormData(form);
         const user = state.currentUserProfile || {};
         const payload = {
@@ -201,6 +227,10 @@ export class SmallGroupModule {
           this.refreshInModal(root);
         } catch (err) {
           alert('보고서 저장 중 오류가 발생했습니다: ' + err.message);
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '시트에 저장하기';
+          }
         }
       });
     }

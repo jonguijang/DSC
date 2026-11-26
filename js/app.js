@@ -595,8 +595,10 @@ async function handleAttendanceSubmit(e) {
     alert('출석 체크 저장은 Google 계정 로그인 후 이용하실 수 있습니다.');
     return;
   }
+  const now = new Date();
+  const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const formData = Object.fromEntries(new FormData(e.target).entries());
-  const serviceDate = formData['예배일자'] || new Date().toISOString().slice(0, 10);
+  const serviceDate = formData['예배일자'] || localToday;
   const serviceType = formData['예배구분(화/금/안)'] || getDefaultWorshipByDate(serviceDate);
 
   const check = validateAttendanceDateAndService(serviceDate, serviceType);
@@ -751,7 +753,8 @@ Object.assign(window, {
   resetAttendanceSearch,
   syncWorshipTypeByDate,
   handleUserGroupChange,
-  submitServiceForm
+  submitServiceForm,
+  refreshUserDashboard: () => renderPersonalizedCard()
 });
 
 // 포털 초기화

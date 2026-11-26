@@ -164,9 +164,33 @@ export class TalentModule {
       } else {
         this.records = [];
       }
+      this.syncUserDashboardTalent();
     } catch (err) {
       console.warn('[TalentModule] 시트 조회 실패:', err);
       this.records = [];
+    }
+  }
+
+  syncUserDashboardTalent() {
+    const user = state.currentUserProfile;
+    if (!state.currentIdToken || !user) return;
+    const uId = String(user.userId || '').trim();
+    const uEmail = String(user.email || '').toLowerCase().trim();
+    const uName = String(user.name || '').trim();
+
+    const totalApproved = this.records
+      .filter(r => {
+        const rUid = String(r.User_ID || r.user_id || '').trim();
+        const rEmail = String(r.Google_Email || r.user_email || r['이메일'] || '').toLowerCase().trim();
+        const rName = String(r['성명'] || r.user_name || '').trim();
+        const isMine = (uId && rUid === uId) || (uEmail && rEmail === uEmail) || (uName && rName === uName);
+        return isMine && this.getStatus(r) === '승인완료';
+      })
+      .reduce((sum, r) => sum + (Number(r['신청달란트'] ?? r.points ?? r['달란트'] ?? 0) || 0), 0);
+
+    user.talent = totalApproved;
+    if (typeof window.refreshUserDashboard === 'function') {
+      window.refreshUserDashboard();
     }
   }
 
@@ -302,9 +326,10 @@ export class TalentModule {
              ? '💡 현재 운영진 미리보기 모드입니다. 상단에서 역할(다산교회/직원/관리자)을 바꾸어 화면과 신청 폼을 시연해 보실 수 있으며, 실제 Google 로그인 시 Talent_Ledger 시트와 실시간 연동됩니다.'
              : '검색 조건에 일치하는 달란트 내역이 없습니다. 기간·상태·검색어를 조정하거나 [초기화]를 눌러 보세요.'}
          </div>`
-      : visibleRecords.map((item, idx) => {
+      : visibleRecords.map(item => {
           const txId = String(item.Tx_ID || item.tx_id || item.talent_id || item.id || '').trim();
-          const rowNumber = Number(item._rowNumber || (idx + 2));
+          // 필터링된 배열 인덱스가 아닌 백엔드가 내려준 실제 시트 행 번호(_rowNumber)만 사용
+          const rowNumber = Number(item._rowNumber || 0);
           const memo = String(item['증빙메모'] || item.memo || '').trim();
           const date = normalizeTalentDateYMD(
             item.activity_date || item['활동일자'] || item['신청일시'] || item['일자'] || '',
@@ -582,13 +607,19 @@ export class TalentModule {
         }
         const talentId = String(btn.dataset.approveId || '').trim();
         const rowNumber = Number(btn.dataset.rowNumber || 0);
+        if (!talentId && !rowNumber) {
+          alert('대상 식별자(Tx_ID)가 없어 승인 처리할 수 없습니다. 페이지를 새로고침해 주세요.');
+          return;
+        }
         if (!confirm('해당 달란트 적립 건을 [승인완료] 처리하시겠습니까?')) return;
 
         const approverName = state.currentUserProfile?.name || '';
         const todayYmd = getTodayYmdKst();
         const nowDt = getNowDateTimeKst();
 
+        const siblingRejectBtn = btn.parentElement?.querySelector('.btn-reject-talent');
         btn.disabled = true;
+        if (siblingRejectBtn) siblingRejectBtn.disabled = true;
         btn.textContent = '처리중...';
 
         try {
@@ -596,6 +627,7 @@ export class TalentModule {
             sheetName: this.sheetName,
             keyField: 'Tx_ID',
             keyValue: talentId,
+            txId: talentId,
             rowNumber,
             updates: {
               '승인여부': '승인완료',
@@ -616,6 +648,7 @@ export class TalentModule {
         } catch (err) {
           alert('승인 처리 중 오류가 발생했습니다: ' + err.message);
           btn.disabled = false;
+          if (siblingRejectBtn) siblingRejectBtn.disabled = false;
           btn.textContent = '승인';
         }
       });
@@ -629,6 +662,10 @@ export class TalentModule {
         }
         const talentId = String(btn.dataset.rejectId || '').trim();
         const rowNumber = Number(btn.dataset.rowNumber || 0);
+        if (!talentId && !rowNumber) {
+          alert('대상 식별자(Tx_ID)가 없어 반려 처리할 수 없습니다. 페이지를 새로고침해 주세요.');
+          return;
+        }
         const reasonInput = prompt('반려 사유를 입력해 주세요. (필수)');
         if (reasonInput === null) return;
         const rejectReason = String(reasonInput).trim();
@@ -641,7 +678,9 @@ export class TalentModule {
         const todayYmd = getTodayYmdKst();
         const nowDt = getNowDateTimeKst();
 
+        const siblingApproveBtn = btn.parentElement?.querySelector('.btn-approve-talent');
         btn.disabled = true;
+        if (siblingApproveBtn) siblingApproveBtn.disabled = true;
         btn.textContent = '처리중...';
 
         try {
@@ -649,6 +688,7 @@ export class TalentModule {
             sheetName: this.sheetName,
             keyField: 'Tx_ID',
             keyValue: talentId,
+            txId: talentId,
             rowNumber,
             updates: {
               '승인여부': '반려',
@@ -669,6 +709,7 @@ export class TalentModule {
         } catch (err) {
           alert('반려 처리 중 오류가 발생했습니다: ' + err.message);
           btn.disabled = false;
+          if (siblingApproveBtn) siblingApproveBtn.disabled = false;
           btn.textContent = '반려';
         }
       });

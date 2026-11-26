@@ -12,7 +12,15 @@ export async function callApi(action, payload = {}) {
       payload
     })
   });
-  return await res.json();
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    return {
+      ok: false,
+      error: 'Apps Script 서버 응답이 JSON 형식이 아닙니다. 웹 앱 배포 상태 및 권한을 확인해 주세요.'
+    };
+  }
 }
 
 export async function loadSmallGroupMaster() {
@@ -195,6 +203,6 @@ export async function fetchPublicHubData() {
   }
 }
 
-export async function updateRow(sheetName, { keyField, keyValue, updates }) {
-  return await callApi('updateRow', { sheetName, keyField, keyValue, updates });
+export async function updateRow(sheetName, { keyField, keyValue, updates, rowNumber = 0 }) {
+  return await callApi('updateRow', { sheetName, keyField, keyValue, updates, rowNumber });
 }

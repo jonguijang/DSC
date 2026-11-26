@@ -1,13 +1,23 @@
 // 시스템 환경 설정 및 30대 서비스·공유 드라이브 매핑
+const HOSTNAME = typeof window !== 'undefined' ? window.location.hostname : '';
+export const IS_PROD = HOSTNAME === 'dsc.or.kr' || HOSTNAME === 'www.dsc.or.kr';
+export const APP_ENV = IS_PROD ? 'PROD' : 'DEV';
+
+const PROD_API_URL = 'https://script.google.com/macros/s/AKfycbyeYkLPvjdToxRf8TUnOSPi3qN2osTse-GMi0ZviPebfnNbRcyJLTP9CNky3l3gV0L8/exec';
+// 테스트(dev.dsc.or.kr) 전용 시트/Apps Script 분리 시 아래 DEV_API_URL만 교체하면 자동 분기됩니다.
+const DEV_API_URL = PROD_API_URL;
+
 export const CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbyeYkLPvjdToxRf8TUnOSPi3qN2osTse-GMi0ZviPebfnNbRcyJLTP9CNky3l3gV0L8/exec',
+  ENV: APP_ENV,
+  IS_PROD,
+  API_URL: IS_PROD ? PROD_API_URL : DEV_API_URL,
   GOOGLE_CLIENT_ID: '214036144218-7rk41ek615sa24odk1hgn9cohv1a9nae.apps.googleusercontent.com',
   ROLE_LEVEL: { '외부인': 1, '다산교회': 2, '직원': 3, '관리자': 4 },
   FOLDERS: {
-    BULLETIN: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
+    BULLETIN: 'https://drive.google.com/drive/folders/196A3OSAfcPn_EtvQ98f5mLwDrtjoxmnt',
     GALLERY: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
-    MANUAL: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud',
-    VOUCHER_RECEIPT: 'https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud'
+    MANUAL: 'https://drive.google.com/drive/folders/1tGIMhnbMR20R7ArNArzhVk0f4AdKcDjC',
+    VOUCHER_RECEIPT: 'https://drive.google.com/drive/folders/1VtsX-g1p8UKwk_L540vwlvjjujXhF4iw'
   },
   DEFAULT_SMALL_GROUPS: [
     { code: 'GRP-01', name: '겸손반', leader: '', location: '본당', active: true },
