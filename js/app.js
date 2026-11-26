@@ -21,7 +21,12 @@ import { WeeklyDutyModule } from './modules/WeeklyDutyModule.js';
 import { DarakbangModule } from './modules/DarakbangModule.js';
 import { OfferingsModule } from './modules/OfferingsModule.js';
 import { BookRequestModule } from './modules/BookRequestModule.js';
-import { AttendanceModule, validateAttendanceDateAndService } from './modules/AttendanceModule.js';
+import {
+  AttendanceModule,
+  validateAttendanceDateAndService,
+  filterAttendanceRecords,
+  resetAttendanceSearch
+} from './modules/AttendanceModule.js';
 
 // 모듈 레지스트리 — 향후 신규 업무 모듈 추가 시 여기에 등록
 const MODULE_REGISTRY = {
@@ -716,6 +721,8 @@ Object.assign(window, {
   handleDarakbangSubmit,
   handleBookRequestSubmit,
   handleAttendanceSubmit,
+  filterAttendanceRecords,
+  resetAttendanceSearch,
   syncWorshipTypeByDate,
   handleUserGroupChange,
   submitServiceForm
