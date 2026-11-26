@@ -43,9 +43,9 @@ export const SERVICES = [
   { cat: '대외·선교', title: '어드벤처러 설명', desc: '어린이·가족 신앙 프로그램', minRole: 1, icon: '🌱', guideTab: 'adventurer' },
 
   // 신앙·편의 (8종)
-  { cat: '신앙·편의', title: '소그룹반 (9개반)', desc: '반별 교과토의·기도제목', minRole: 2, icon: '👥', sheet: 'SmallGroup_Reports' },
+  { cat: '신앙·편의', title: '소그룹반 (9개반)', desc: '반별 교과토의·기도제목', minRole: 2, icon: '👥', sheet: 'SmallGroup_Reports', moduleKey: 'smallGroup' },
   { cat: '신앙·편의', title: '출석현황 (화/금/안)', desc: '모바일 출석체크 및 통계', minRole: 2, icon: '✅', sheet: 'Attendance_Log', moduleKey: 'attendance' },
-  { cat: '신앙·편의', title: '달란트 관리', desc: '신앙활동 등록 및 현황판', minRole: 2, icon: '🏆', sheet: 'Talent_Ledger', formFields: ['활동구분', '증빙메모', '신청달란트'] },
+  { cat: '신앙·편의', title: '달란트 관리', desc: '신앙활동 등록 및 현황판', minRole: 2, icon: '🏆', sheet: 'Talent_Ledger', moduleKey: 'talent', formFields: ['활동구분', '증빙메모', '신청달란트'] },
   { cat: '신앙·편의', title: '다락방 ID·매뉴얼', desc: '신규발급·초기화·사용법', minRole: 2, icon: '🔑', sheet: 'Darakbang_Requests', moduleKey: 'darakbang', formFields: ['연락처', '요청구분(신규발급/비번초기화)'] },
   { cat: '신앙·편의', title: '헌금내역 조회', desc: '본인 전용 헌금 납부 조회', minRole: 2, icon: '🔒', sheet: 'Offerings_Log', moduleKey: 'offerings' },
   { cat: '신앙·편의', title: '서적신청조회', desc: '교과책·신앙서적 공동구매', minRole: 2, icon: '📚', sheet: 'Book_Requests', moduleKey: 'bookRequest', formFields: ['도서명/교과구분', '수량'] },

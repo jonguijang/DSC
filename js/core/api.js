@@ -194,3 +194,7 @@ export async function fetchPublicHubData() {
     return { status: 'fallback', data: buildFallbackHubData() };
   }
 }
+
+async updateRow(sheetName, { keyField, keyValue, updates }) {
+  return this.request('updateRow', { sheetName, keyField, keyValue, updates });
+}

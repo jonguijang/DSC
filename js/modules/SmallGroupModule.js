@@ -1,0 +1,197 @@
+import { BaseModule } from '../core/BaseModule.js';
+import { CONFIG } from '../core/config.js';
+
+export class SmallGroupModule extends BaseModule {
+  constructor(options = {}) {
+    super({
+      id: 'small-group',
+      title: '안식일학교 9개반 소그룹 포털',
+      sheetName: 'SmallGroup_Reports',
+      ...options
+    });
+    this.selectedGroup = '전체';
+    this.groupMeta = (CONFIG.DEFAULT_SMALL_GROUPS || []).filter(g => g.active !== false);
+    this.groups = ['전체', ...this.groupMeta.map(g => g.name)];
+    this.reports = [];
+  }
+
+  async render(container) {
+    this.container = container;
+    await this.loadReports();
+    this.updateView();
+  }
+
+  async loadReports() {
+    try {
+      const res = await this.api.querySheet(this.sheetName, { limit: 100 });
+      this.reports = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.warn('[SmallGroupModule] 시트 조회 실패, 기본 안내 표시:', err);
+      this.reports = [];
+    }
+  }
+
+  getFilteredReports() {
+    if (this.selectedGroup === '전체') return this.reports;
+    return this.reports.filter(r => {
+      const grp = String(r.group_name || r.소속반 || r.반명 || '').trim();
+      return grp === this.selectedGroup;
+    });
+  }
+
+  updateView() {
+    if (!this.container) return;
+    const roleLevel = Number(this.state?.get?.('roleLevel') || 1);
+    const canWrite = roleLevel >= 2;
+    const filtered = this.getFilteredReports();
+
+    const tabsHtml = this.groups.map(g => {
+      const active = this.selectedGroup === g;
+      return `
+        <button type="button" data-group="${g}"
+          class="sg-tab px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+            active
+              ? 'bg-amber-600 text-white shadow-sm'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+          }">
+          ${g}
+        </button>`;
+    }).join('');
+
+    const rowsHtml = filtered.length === 0
+      ? `<div class="p-8 text-center text-sm text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+           선택한 반(${this.selectedGroup})에 등록된 소그룹 보고서가 없습니다.
+         </div>`
+      : filtered.map(item => {
+          const date = item.report_date || item.보고일자 || item.일자 || '-';
+          const group = item.group_name || item.소속반 || item.반명 || '-';
+          const leader = item.leader_name || item.반장 || item.작성자 || '-';
+          const attend = item.attendance_count || item.참석인원 || '-';
+          const summary = item.lesson_summary || item.교과요약 || item.활동내용 || '';
+          const prayer = item.prayer_request || item.기도제목 || '';
+
+          return `
+            <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hover:border-amber-400 transition">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">${group}</span>
+                  <span class="text-xs font-semibold text-slate-500">${date}</span>
+                </div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">
+                  반장/작성: <strong>${leader}</strong> · 참석: <strong class="text-amber-700 dark:text-amber-300">${attend}명</strong>
+                </div>
+              </div>
+              <p class="text-sm text-slate-800 dark:text-slate-200 leading-relaxed mb-2">${summary || '(교과·활동 요약 미입력)'}</p>
+              ${prayer ? `
+                <div class="text-xs bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-300">
+                  <span class="font-semibold text-amber-700 dark:text-amber-400">🙏 중보기도 제목:</span> ${prayer}
+                </div>` : ''}
+            </div>`;
+        }).join('');
+
+    this.container.innerHTML = `
+      <div class="space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-700">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900 dark:text-white">안식일학교 9개반 교과·소그룹 보고서</h3>
+            <p class="text-xs text-slate-500">겸손·사랑·온유·믿음·소망·기쁨·평화·은혜·진리반 교과 토의 및 중보기도를 공유합니다.</p>
+          </div>
+          ${canWrite ? `
+            <button type="button" id="btn-toggle-sg-form"
+              class="px-3.5 py-2 rounded-lg bg-slate-900 text-white dark:bg-amber-600 text-xs font-bold hover:opacity-90 transition">
+              + 소그룹 보고서 작성
+            </button>` : `
+            <span class="text-xs px-2.5 py-1 rounded bg-slate-100 text-slate-500">로그인 후 보고서 작성 가능</span>`}
+        </div>
+
+        <form id="sg-report-form" class="hidden p-4 rounded-xl bg-amber-50/70 dark:bg-slate-800 border border-amber-200 dark:border-slate-700 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-semibold mb-1">소속반 선택 *</label>
+              <select name="group_name" required class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm">
+                ${this.groupMeta.map(g => `<option value="${g.name}">${g.name} (${g.location})</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold mb-1">보고 일자 *</label>
+              <input type="date" name="report_date" required value="${new Date().toISOString().slice(0, 10)}"
+                class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold mb-1">참석 인원(명) *</label>
+              <input type="number" name="attendance_count" min="1" max="100" required placeholder="예: 8"
+                class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">금주 교과 토의 요약 및 선교·봉사 활동 *</label>
+            <textarea name="lesson_summary" rows="2" required placeholder="이번 안식일 교과 핵심 나눔 및 반원 안부·봉사 내용을 간략히 기록해 주세요."
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm"></textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1">반별 중보기도 제목</label>
+            <input type="text" name="prayer_request" placeholder="환우, 가정, 전도 대상자 등 함께 기도할 제목"
+              class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm" />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" id="btn-cancel-sg-form" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold">취소</button>
+            <button type="submit" class="px-4 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700">시트에 저장하기</button>
+          </div>
+        </form>
+
+        <div class="flex flex-wrap gap-1.5">${tabsHtml}</div>
+        <div class="space-y-3">${rowsHtml}</div>
+      </div>
+    `;
+
+    this.bindEvents();
+  }
+
+  bindEvents() {
+    this.container.querySelectorAll('.sg-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.selectedGroup = btn.dataset.group;
+        this.updateView();
+      });
+    });
+
+    const toggleBtn = this.container.querySelector('#btn-toggle-sg-form');
+    const cancelBtn = this.container.querySelector('#btn-cancel-sg-form');
+    const form = this.container.querySelector('#sg-report-form');
+
+    if (toggleBtn && form) {
+      toggleBtn.addEventListener('click', () => form.classList.toggle('hidden'));
+    }
+    if (cancelBtn && form) {
+      cancelBtn.addEventListener('click', () => form.classList.add('hidden'));
+    }
+
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const user = this.state?.get?.('user') || {};
+        const payload = {
+          report_id: 'SG-' + Date.now(),
+          report_date: fd.get('report_date'),
+          group_name: fd.get('group_name'),
+          leader_name: user.name || user.email || '작성자',
+          leader_email: user.email || '',
+          attendance_count: Number(fd.get('attendance_count') || 0),
+          lesson_summary: fd.get('lesson_summary'),
+          prayer_request: fd.get('prayer_request') || '',
+          created_at: new Date().toISOString()
+        };
+
+        try {
+          await this.api.insertRow(this.sheetName, payload);
+          alert(`${payload.group_name} 소그룹 보고서가 정상 등록되었습니다.`);
+          await this.loadReports();
+          this.updateView();
+        } catch (err) {
+          alert('보고서 저장 중 오류가 발생했습니다: ' + err.message);
+        }
+      });
+    }
+  }
+}
