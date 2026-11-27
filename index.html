@@ -49,29 +49,29 @@
 <body class="min-h-dvh flex flex-col bg-skyBg text-slate-800 dark:bg-slate-950 dark:text-slate-100">
 
 <!-- 1. 상단 유틸 바 -->
-  <div class="bg-navyDark dark:bg-black text-white text-[11px] py-1.5 px-3 border-b border-white/10 shrink-0">
-    <div class="max-w-3xl mx-auto flex items-center justify-between gap-1.5">
-      <div class="flex items-center gap-1.5 min-w-0">
-        <span id="api-status-dot" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 whitespace-nowrap">
-          🟡 연동 준비중
-        </span>
-        <button type="button" onclick="openIdPasswordModal()"
-          class="px-2 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-goldLight font-semibold transition whitespace-nowrap">
-          🔑 아이디 신청/비번초기화
-        </button>
-      </div>
-      <div class="flex items-center gap-1.5 shrink-0">
-        <button type="button" id="dsc-account-add-btn" onclick="openDscAccountGuideModal()"
-          class="px-2 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 font-semibold transition whitespace-nowrap">
-          👤 DSC계정추가
-        </button>
-        <button type="button" id="pwa-install-btn" onclick="triggerInstallShortcut()"
-          class="px-2 py-0.5 rounded-full bg-gold/20 hover:bg-gold/30 text-gold font-semibold transition whitespace-nowrap">
-          📲 바로가기
-        </button>
-      </div>
+<div class="bg-navyDark dark:bg-black text-white text-[10px] sm:text-[11px] py-1.5 px-2 sm:px-3 border-b border-white/10 shrink-0">
+  <div class="max-w-3xl mx-auto flex flex-wrap items-center justify-between gap-1">
+    <div class="flex items-center gap-1 min-w-0">
+      <span id="api-status-dot" class="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 whitespace-nowrap">
+        🟢 연동됨
+      </span>
+      <button type="button" onclick="openIdPasswordModal()"
+        class="px-1.5 sm:px-2 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-goldLight font-semibold transition whitespace-nowrap">
+        🔑 아이디/비번
+      </button>
+    </div>
+    <div class="flex items-center gap-1 shrink-0">
+      <button type="button" id="dsc-account-add-btn" onclick="openDscAccountGuideModal()"
+        class="px-1.5 sm:px-2 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 font-semibold transition whitespace-nowrap">
+        👤 DSC
+      </button>
+      <button type="button" id="pwa-install-btn" onclick="triggerInstallShortcut()"
+        class="px-1.5 sm:px-2 py-0.5 rounded-full bg-gold/20 hover:bg-gold/30 text-gold font-semibold transition whitespace-nowrap">
+        📲 바로가기
+      </button>
     </div>
   </div>
+</div>
 
   <!-- 2. 메인 헤더 (황금색 '다산교회' 단일 표기) -->
   <header class="bg-white/95 dark:bg-slate-900/95 backdrop-blur sticky top-0 z-40 border-b border-gray-200 dark:border-slate-800 shrink-0">
