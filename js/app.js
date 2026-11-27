@@ -147,7 +147,7 @@ function isValidImageSrc(url) {
 const smoothVerticalSlider = {
   items: DEFAULT_SLIDES.slice(),
   index: 0,
-  direction: -1, // 기본값: -1(위로 천천히 이동), 1(아래로), 0(정지)
+  direction: -1,
   rafId: null,
   lastTick: 0,
   intervalMs: 7500,
@@ -230,8 +230,6 @@ const smoothVerticalSlider = {
       const { curr, next } = slots;
       const calmEase = `transform ${this.slideMs}ms cubic-bezier(0.25, 0.8, 0.25, 1)`;
 
-      // dirSign === -1(기본 위로): 현재 사진이 위(-100%)로 부드럽게 올라가고 다음 사진이 아래(+100%)에서 올라와 이어짐
-      // dirSign === 1(아래로): 현재 사진이 아래(+100%)로 부드럽게 내려가고 다음 사진이 위(-100%)에서 내려와 이어짐
       next.style.transition = 'none';
       next.src = targetItem.thumb;
       next.style.transform = `translateY(${dirSign < 0 ? '100%' : '-100%'})`;
@@ -363,7 +361,7 @@ function getUpcomingWorshipSlots() {
   }).sort((a, b) => a.target - b.target);
 }
 
-// 나의 대시보드 (비로그인 시 'Quick 메뉴 보기 →' 링크 제거)
+// 나의 대시보드
 function renderPersonalizedCard() {
   const card = document.getElementById('personalized-card');
   if (!card) return;
@@ -390,6 +388,32 @@ function renderPersonalizedCard() {
     </div>`;
 }
 
+// 업무별 전체 메뉴 렌더링 ([전체메뉴] 클릭 시 바로 노출)
+function renderAllBusinessMenu() {
+  const grid = document.getElementById('all-business-menu-grid');
+  const badge = document.getElementById('all-menu-role-badge');
+  const userLv = ROLE_LEVEL[state.currentRole] || 1;
+  if (badge) badge.textContent = `Lv.${userLv} ${state.currentRole}`;
+  if (!grid) return;
+
+  const list = SERVICES.filter(s => s.active || userLv >= 5);
+  grid.innerHTML = list.map(s => {
+    const ok = userLv >= s.minRole && s.active;
+    return `
+      <button type="button" onclick="openServiceById('${s.id}')"
+        class="p-3 rounded-xl border text-left transition ${ok
+          ? 'bg-skyBg/70 hover:bg-skyBg dark:bg-slate-800 dark:hover:bg-slate-700/80 border-gray-200 dark:border-slate-700'
+          : 'opacity-55 bg-gray-50 dark:bg-slate-800/40 border-gray-200 dark:border-slate-800'}">
+        <div class="flex items-center justify-between gap-1">
+          <span class="text-base">${ok ? s.icon : '🔒'}</span>
+          <span class="text-[10px] font-semibold text-gray-400">Lv.${s.minRole}+</span>
+        </div>
+        <div class="font-bold text-xs text-navy dark:text-white mt-1 truncate">${s.title}</div>
+        <div class="text-[10px] text-gray-500 dark:text-slate-400 truncate mt-0.5">${s.desc}</div>
+      </button>`;
+  }).join('');
+}
+
 // 3단 고정 네비게이션 전환: [전체메뉴] [예배출석및예약] [즐겨찾기메뉴]
 function switchBottomTab(tab) {
   state.currentTab = tab;
@@ -403,30 +427,10 @@ function switchBottomTab(tab) {
       ? 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-navy dark:text-gold font-bold transition'
       : 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition';
   });
+  if (tab === 'all') renderAllBusinessMenu();
   if (tab === 'worship') renderWorshipTab();
   if (tab === 'my') renderMyTab();
   window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function openFullMenuDrawer() {
-  const userLv = ROLE_LEVEL[state.currentRole] || 1;
-  const modal = document.getElementById('service-modal');
-  document.getElementById('modal-icon').textContent = '☰';
-  document.getElementById('modal-title').textContent = '전체 업무 메뉴';
-  document.getElementById('modal-subtitle').textContent = `현재 권한: Lv.${userLv} ${state.currentRole}`;
-  document.getElementById('modal-body').innerHTML = `
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-      ${SERVICES.filter(s => s.active || userLv >= 5).map(s => {
-        const ok = userLv >= s.minRole && s.active;
-        return `<button type="button" onclick="closeServiceModal(); openServiceById('${s.id}');"
-          class="p-3 rounded-xl border text-left transition ${ok ? 'bg-skyBg/70 dark:bg-slate-800 border-gray-200 dark:border-slate-700' : 'opacity-50 border-gray-200 dark:border-slate-800'}">
-          <div class="text-base">${ok ? s.icon : '🔒'}</div>
-          <div class="font-bold text-xs text-navy dark:text-white mt-1">${s.title}</div>
-          <div class="text-[10px] text-gray-500 truncate">${s.desc}</div>
-        </button>`;
-      }).join('')}
-    </div>`;
-  modal.classList.remove('hidden');
 }
 
 function renderWorshipTab() {
@@ -838,7 +842,7 @@ function syncSessionUI() {
 function performLogout(expired = false) {
   localStorage.removeItem(SESSION_KEY);
   state.currentIdToken = ''; state.currentUserProfile = null; state.currentRole = '외부인';
-  syncSessionUI(); renderPersonalizedCard();
+  syncSessionUI(); renderPersonalizedCard(); renderAllBusinessMenu();
   if (state.currentTab === 'my') renderMyTab();
   showToast(expired ? '⏱ 세션이 만료되어 로그아웃되었습니다.' : '로그아웃되었습니다.');
 }
@@ -851,7 +855,7 @@ function changePreviewRole(raw) {
   const role = normalizeRoleName(raw);
   state.currentRole = role;
   saveSession(role, state.currentUserProfile, state.currentIdToken);
-  syncSessionUI(); renderPersonalizedCard();
+  syncSessionUI(); renderPersonalizedCard(); renderAllBusinessMenu();
   if (state.currentTab === 'my') renderMyTab();
 }
 
@@ -869,7 +873,7 @@ function handleAuthClick() {
           const role = normalizeRoleName(res.user.role || '외부인');
           state.currentRole = role;
           saveSession(role, res.user, state.currentIdToken);
-          syncSessionUI(); renderPersonalizedCard();
+          syncSessionUI(); renderPersonalizedCard(); renderAllBusinessMenu();
           showToast(`✅ ${res.user.name}님 환영합니다 (${role})`);
         } else { performLogout(false); alert((res && res.error) || '로그인 실패'); }
       }
@@ -952,7 +956,6 @@ function bindVerticalSwipe() {
 Object.assign(window, {
   toggleTheme,
   switchBottomTab,
-  openFullMenuDrawer,
   toggleQuickFavorite,
   toggleAlbumBgm,
   openWorshipReserveForm,
@@ -991,6 +994,7 @@ function init() {
   }
   syncSessionUI();
   renderPersonalizedCard();
+  renderAllBusinessMenu();
   updateCountdown();
   setInterval(updateCountdown, 1000);
   loadHub();

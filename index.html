@@ -104,8 +104,8 @@
   <!-- 3. 메인 뷰포트 -->
   <main class="flex-1 max-w-3xl w-full mx-auto px-3.5 pt-2.5 pb-20 flex flex-col gap-2.5">
 
-    <!-- [전체메뉴] 상단: 나의 대시보드 / 하단: 완만한 상하 슬라이드 앨범 + BGM -->
-    <section id="tab-view-all" class="flex-1 flex flex-col gap-2.5">
+    <!-- [전체메뉴] 상단: 나의 대시보드 / 중단: 상하 슬라이드 앨범 + BGM / 하단: 업무별 전체 메뉴 -->
+    <section id="tab-view-all" class="flex flex-col gap-2.5">
 
       <!-- 다음 예배 한 줄 알림 -->
       <div class="flex items-center justify-between bg-white dark:bg-slate-900 rounded-xl px-3 py-1.5 shadow-sm border border-gray-200/80 dark:border-slate-800 text-xs shrink-0">
@@ -124,8 +124,8 @@
       <div id="personalized-card" class="shrink-0"></div>
 
       <!-- 2) 활동사진 앨범 (기본 위로 천천히 이어지는 슬라이드) -->
-      <div class="flex-1 min-h-[300px] sm:min-h-[360px] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-gray-200/80 dark:border-slate-800 flex flex-col">
-        <div id="gallery-slider-stage" class="relative flex-1 min-h-[240px] bg-navyDark overflow-hidden select-none">
+      <div class="min-h-[280px] sm:min-h-[340px] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-gray-200/80 dark:border-slate-800 flex flex-col">
+        <div id="gallery-slider-stage" class="relative flex-1 min-h-[230px] bg-navyDark overflow-hidden select-none">
           <img id="hero-gallery-img-a" src="" alt="다산교회 활동사진"
             class="gallery-layer w-full h-full object-cover absolute inset-0" />
           <img id="hero-gallery-img-b" src="" alt=""
@@ -175,10 +175,9 @@
               <span id="bgm-icon">♪</span>
               <span id="bgm-label">BGM 재생</span>
             </button>
-            <button type="button" onclick="openFullMenuDrawer()"
-              class="text-[11px] font-bold text-navy dark:text-gold hover:underline">
-              전체업무 →
-            </button>
+            <a href="#all-business-menu" class="text-[11px] font-bold text-navy dark:text-gold hover:underline">
+              전체업무 ↓
+            </a>
           </div>
         </div>
 
@@ -189,6 +188,15 @@
           <a href="https://www.youtube.com/watch?v=aWzWjHUfpvU" target="_blank" rel="noopener noreferrer"
             class="underline text-gold shrink-0">유튜브 열기</a>
         </div>
+      </div>
+
+      <!-- 3) 업무별 전체 메뉴 (네비게이션 '전체메뉴' 클릭 시 바로 표시) -->
+      <div id="all-business-menu" class="bg-white dark:bg-slate-900 rounded-2xl p-3.5 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <h2 class="font-bold text-sm text-navy dark:text-white">📋 업무별 전체 메뉴</h2>
+          <span id="all-menu-role-badge" class="text-[11px] font-bold text-amber-700 dark:text-gold">Lv.1 외부인</span>
+        </div>
+        <div id="all-business-menu-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
       </div>
 
     </section>
