@@ -48,7 +48,7 @@
 </head>
 <body class="min-h-dvh flex flex-col bg-skyBg text-slate-800 dark:bg-slate-950 dark:text-slate-100">
 
-  <!-- 1. 상단 유틸 바 -->
+<!-- 1. 상단 유틸 바 -->
   <div class="bg-navyDark dark:bg-black text-white text-[11px] py-1.5 px-3 border-b border-white/10 shrink-0">
     <div class="max-w-3xl mx-auto flex items-center justify-between gap-1.5">
       <div class="flex items-center gap-1.5 min-w-0">
@@ -60,10 +60,16 @@
           🔑 아이디 신청/비번초기화
         </button>
       </div>
-      <button type="button" id="pwa-install-btn" onclick="triggerInstallShortcut()"
-        class="px-2 py-0.5 rounded-full bg-gold/20 hover:bg-gold/30 text-gold font-semibold transition whitespace-nowrap shrink-0">
-        📲 바로가기
-      </button>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" id="dsc-account-add-btn" onclick="openDscAccountGuideModal()"
+          class="px-2 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 font-semibold transition whitespace-nowrap">
+          👤 DSC계정추가
+        </button>
+        <button type="button" id="pwa-install-btn" onclick="triggerInstallShortcut()"
+          class="px-2 py-0.5 rounded-full bg-gold/20 hover:bg-gold/30 text-gold font-semibold transition whitespace-nowrap">
+          📲 바로가기
+        </button>
+      </div>
     </div>
   </div>
 
