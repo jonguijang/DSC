@@ -114,6 +114,11 @@ const DEFAULT_SLIDES = [
   { thumb: makeSlideSvg('함께 섬기는 다산교회', '소그룹 · 패스파인더 · 어드벤처러', '#263849', '#141d26'), title: '다산교회 활동앨범', sub: '물 흐르듯 이어지는 교회 소식' }
 ];
 
+function isValidImageSrc(url) {
+  const s = String(url || '').trim();
+  return s.startsWith('https://') || s.startsWith('http://') || s.startsWith('data:image/');
+}
+
 // 물 흐르듯 부드럽게 이어지는 상하(세로) 슬라이더
 const smoothVerticalSlider = {
   items: DEFAULT_SLIDES.slice(),
@@ -127,7 +132,14 @@ const smoothVerticalSlider = {
   setItems(albums) {
     const flat = [];
     (albums || []).forEach(alb => (alb.photos || []).forEach(p => {
-      if (p && p.thumb) flat.push({ thumb: p.thumb, title: alb.title || '활동사진', sub: p.name || '다산교회 갤러리' });
+      const candidate = p && (p.thumb || p.url || p.src);
+      if (isValidImageSrc(candidate)) {
+        flat.push({
+          thumb: candidate.trim(),
+          title: alb.title || '다산교회 활동사진',
+          sub: p.name || '함께 예배하고 섬기는 다산교회 공동체'
+        });
+      }
     }));
     this.items = flat.length ? flat.slice(0, 20) : DEFAULT_SLIDES.slice();
     this.index = 0;
@@ -135,46 +147,62 @@ const smoothVerticalSlider = {
     this.startLoop();
   },
 
-  step(delta) {
+  preloadImage(src) {
+    return new Promise(resolve => {
+      const probe = new Image();
+      probe.decoding = 'async';
+      probe.onload = () => resolve(true);
+      probe.onerror = () => resolve(false);
+      probe.src = src;
+    });
+  },
+
+  async step(delta) {
     if (!this.items.length || this.transitioning) return;
     this.transitioning = true;
-    const dirSign = delta >= 0 ? 1 : -1;
-    const img = document.getElementById('hero-gallery-img');
-    const nextIdx = (this.index + delta + this.items.length) % this.items.length;
 
-    if (!img) {
+    try {
+      const dirSign = delta >= 0 ? 1 : -1;
+      const img = document.getElementById('hero-gallery-img');
+      const nextIdx = (this.index + delta + this.items.length) % this.items.length;
+      const nextItem = this.items[nextIdx] || DEFAULT_SLIDES[0];
+
+      if (!img) {
+        this.index = nextIdx;
+        this.renderImmediate();
+        return;
+      }
+
+      const loaded = await this.preloadImage(nextItem.thumb);
+      const targetItem = loaded ? nextItem : DEFAULT_SLIDES[nextIdx % DEFAULT_SLIDES.length];
+
+      img.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+      img.style.opacity = '0';
+      img.style.transform = `translateY(${dirSign > 0 ? '-14px' : '14px'})`;
+
+      await new Promise(r => setTimeout(r, 260));
+
       this.index = nextIdx;
-      this.renderImmediate();
-      this.transitioning = false;
-      return;
-    }
+      img.style.transition = 'none';
+      img.src = targetItem.thumb;
+      img.style.transform = `translateY(${dirSign > 0 ? '14px' : '-14px'})`;
 
-    // 물 흐르듯 부드러운 아웃 -> 인 크로스페이드 + 수직 드리프트
-    img.style.opacity = '0';
-    img.style.transform = `translateY(${dirSign > 0 ? '-18px' : '18px'}) scale(1.01)`;
-
-    setTimeout(() => {
-      this.index = nextIdx;
-      const item = this.items[this.index] || DEFAULT_SLIDES[0];
-      img.src = item.thumb;
       const cap = document.getElementById('hero-gallery-caption');
       const sub = document.getElementById('hero-gallery-sub');
       const cnt = document.getElementById('hero-gallery-counter');
-      if (cap) cap.textContent = item.title;
-      if (sub) sub.textContent = item.sub || '';
+      if (cap) cap.textContent = targetItem.title;
+      if (sub) sub.textContent = targetItem.sub || '';
       if (cnt) cnt.textContent = `${this.index + 1} / ${this.items.length}`;
 
-      img.style.transform = `translateY(${dirSign > 0 ? '18px' : '-18px'}) scale(1.01)`;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          img.style.opacity = '1';
-          img.style.transform = 'translateY(0) scale(1)';
-          setTimeout(() => {
-            this.transitioning = false;
-          }, 650);
-        });
-      });
-    }, 260);
+      void img.offsetHeight;
+      img.style.transition = 'opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)';
+      img.style.opacity = '1';
+      img.style.transform = 'translateY(0)';
+
+      await new Promise(r => setTimeout(r, 550));
+    } finally {
+      this.transitioning = false;
+    }
   },
 
   setDirection(dir) {
@@ -199,7 +227,7 @@ const smoothVerticalSlider = {
     if (this.rafId) cancelAnimationFrame(this.rafId);
     this.lastTick = performance.now();
     const loop = now => {
-      if (this.direction !== 0 && this.items.length > 1) {
+      if (this.direction !== 0 && this.items.length > 1 && !this.transitioning) {
         if (now - this.lastTick >= this.intervalMs) {
           this.lastTick = now;
           this.step(this.direction);
@@ -217,9 +245,13 @@ const smoothVerticalSlider = {
     const sub = document.getElementById('hero-gallery-sub');
     const cnt = document.getElementById('hero-gallery-counter');
     if (img) {
+      img.onerror = () => {
+        img.onerror = null;
+        img.src = DEFAULT_SLIDES[0].thumb;
+      };
       img.src = item.thumb;
       img.style.opacity = '1';
-      img.style.transform = 'translateY(0) scale(1)';
+      img.style.transform = 'translateY(0)';
     }
     if (cap) cap.textContent = item.title;
     if (sub) sub.textContent = item.sub || '';
@@ -724,149 +756,3 @@ function init() {
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
-
-function isValidImageSrc(url) {
-  const s = String(url || '').trim();
-  return s.startsWith('https://') || s.startsWith('http://') || s.startsWith('data:image/');
-}
-
-const smoothVerticalSlider = {
-  items: DEFAULT_SLIDES.slice(),
-  index: 0,
-  direction: 1, // 1: 아래로, -1: 위로, 0: 정지
-  rafId: null,
-  lastTick: 0,
-  intervalMs: 4200,
-  transitioning: false,
-
-  setItems(albums) {
-    const flat = [];
-    (albums || []).forEach(alb => (alb.photos || []).forEach(p => {
-      const candidate = p && (p.thumb || p.url || p.src);
-      if (isValidImageSrc(candidate)) {
-        flat.push({
-          thumb: candidate.trim(),
-          title: alb.title || '다산교회 활동사진',
-          sub: p.name || '함께 예배하고 섬기는 다산교회 공동체'
-        });
-      }
-    }));
-    this.items = flat.length ? flat.slice(0, 20) : DEFAULT_SLIDES.slice();
-    this.index = 0;
-    this.renderImmediate();
-    this.startLoop();
-  },
-
-  preloadImage(src) {
-    return new Promise(resolve => {
-      const probe = new Image();
-      probe.decoding = 'async';
-      probe.onload = () => resolve(true);
-      probe.onerror = () => resolve(false);
-      probe.src = src;
-    });
-  },
-
-  async step(delta) {
-    if (!this.items.length || this.transitioning) return;
-    this.transitioning = true;
-
-    try {
-      const dirSign = delta >= 0 ? 1 : -1;
-      const img = document.getElementById('hero-gallery-img');
-      const nextIdx = (this.index + delta + this.items.length) % this.items.length;
-      const nextItem = this.items[nextIdx] || DEFAULT_SLIDES[0];
-
-      if (!img) {
-        this.index = nextIdx;
-        this.renderImmediate();
-        return;
-      }
-
-      // 다음 이미지를 미리 로드해 깜박임 방지
-      const loaded = await this.preloadImage(nextItem.thumb);
-      const targetItem = loaded ? nextItem : DEFAULT_SLIDES[nextIdx % DEFAULT_SLIDES.length];
-
-      img.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
-      img.style.opacity = '0';
-      img.style.transform = `translateY(${dirSign > 0 ? '-14px' : '14px'})`;
-
-      await new Promise(r => setTimeout(r, 260));
-
-      this.index = nextIdx;
-      img.style.transition = 'none';
-      img.src = targetItem.thumb;
-      img.style.transform = `translateY(${dirSign > 0 ? '14px' : '-14px'})`;
-
-      const cap = document.getElementById('hero-gallery-caption');
-      const sub = document.getElementById('hero-gallery-sub');
-      const cnt = document.getElementById('hero-gallery-counter');
-      if (cap) cap.textContent = targetItem.title;
-      if (sub) sub.textContent = targetItem.sub || '';
-      if (cnt) cnt.textContent = `${this.index + 1} / ${this.items.length}`;
-
-      void img.offsetHeight;
-      img.style.transition = 'opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)';
-      img.style.opacity = '1';
-      img.style.transform = 'translateY(0)';
-
-      await new Promise(r => setTimeout(r, 550));
-    } finally {
-      this.transitioning = false;
-    }
-  },
-
-  setDirection(dir) {
-    this.direction = dir;
-    this.lastTick = performance.now();
-    this.updateBtns();
-    this.startLoop();
-  },
-
-  updateBtns() {
-    const active = 'px-2 py-1 rounded-md text-[11px] font-bold bg-navy text-white dark:bg-gold dark:text-navyDark transition';
-    const idle = 'px-2 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition';
-    const r = document.getElementById('btn-dir-rev');
-    const p = document.getElementById('btn-dir-pause');
-    const f = document.getElementById('btn-dir-fwd');
-    if (r) r.className = this.direction === -1 ? active : idle;
-    if (p) p.className = this.direction === 0 ? active : idle;
-    if (f) f.className = this.direction === 1 ? active : idle;
-  },
-
-  startLoop() {
-    if (this.rafId) cancelAnimationFrame(this.rafId);
-    this.lastTick = performance.now();
-    const loop = now => {
-      if (this.direction !== 0 && this.items.length > 1 && !this.transitioning) {
-        if (now - this.lastTick >= this.intervalMs) {
-          this.lastTick = now;
-          this.step(this.direction);
-        }
-      }
-      this.rafId = requestAnimationFrame(loop);
-    };
-    this.rafId = requestAnimationFrame(loop);
-  },
-
-  renderImmediate() {
-    const item = this.items[this.index] || DEFAULT_SLIDES[0];
-    const img = document.getElementById('hero-gallery-img');
-    const cap = document.getElementById('hero-gallery-caption');
-    const sub = document.getElementById('hero-gallery-sub');
-    const cnt = document.getElementById('hero-gallery-counter');
-    if (img) {
-      img.onerror = () => {
-        img.onerror = null;
-        img.src = DEFAULT_SLIDES[0].thumb;
-      };
-      img.src = item.thumb;
-      img.style.opacity = '1';
-      img.style.transform = 'translateY(0)';
-    }
-    if (cap) cap.textContent = item.title;
-    if (sub) sub.textContent = item.sub || '';
-    if (cnt) cnt.textContent = `${this.index + 1} / ${this.items.length}`;
-    this.updateBtns();
-  }
-};
