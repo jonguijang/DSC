@@ -1052,3 +1052,92 @@ function init() {
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
+
+function openDscAccountGuideModal() {
+  const existing = document.getElementById('dsc-account-guide-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'dsc-account-guide-modal';
+  modal.style.cssText = [
+    'position:fixed',
+    'inset:0',
+    'z-index:9999',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+    'padding:16px',
+    'background:rgba(15, 23, 42, 0.58)'
+  ].join(';');
+
+  modal.innerHTML = `
+    <div style="width:100%;max-width:420px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(0,0,0,0.25);font-family:inherit;">
+      <div style="background:#16325c;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div>
+          <div style="font-size:17px;font-weight:700;margin-bottom:4px;">다산교회(@dsc.or.kr) 계정 안내</div>
+          <div style="font-size:12.5px;line-height:1.45;color:#dbeafe;">
+            개인 Gmail 대신 <strong>@dsc.or.kr</strong> 계정으로 로그인해야 성도·직분 권한이 정상 반영됩니다.
+          </div>
+        </div>
+        <button
+          type="button"
+          aria-label="닫기"
+          onclick="closeDscAccountGuideModal()"
+          style="background:transparent;border:none;color:#fff;font-size:20px;line-height:1;cursor:pointer;padding:2px 6px;"
+        >&times;</button>
+      </div>
+
+      <div style="padding:18px 20px;color:#1e293b;font-size:13.5px;line-height:1.55;">
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;">
+          <div style="font-weight:700;margin-bottom:6px;color:#0f172a;">
+            1. 스마트폰에 교회 계정 등록 <span style="font-size:11px;background:#e0e7ff;color:#1d4ed8;padding:2px 6px;border-radius:999px;margin-left:4px;">최초 1회</span>
+          </div>
+          <p style="margin:0;color:#475569;font-size:13px;">
+            휴대폰에 <strong>@dsc.or.kr</strong> 계정이 등록되어 있어야 로그인 시 <strong>'외부인'</strong>으로 표시되지 않습니다.
+          </p>
+        </div>
+
+        <ol style="margin:0 0 16px;padding-left:18px;color:#334155;font-size:13px;">
+          <li style="margin-bottom:6px;">
+            <strong>Android:</strong> 설정 → 비밀번호 및 계정(또는 계정 추가) → <strong>Google</strong>에서 <code>@dsc.or.kr</code> 계정 로그인
+          </li>
+          <li style="margin-bottom:6px;">
+            <strong>iPhone(iOS):</strong> Safari/Chrome 또는 Gmail 앱에서 <code>@dsc.or.kr</code> Google 계정으로 먼저 로그인
+          </li>
+          <li>
+            포털의 <strong>로그인</strong> 버튼을 누른 뒤 계정 선택 화면에서 <strong>@dsc.or.kr</strong> 계정을 선택
+          </li>
+        </ol>
+
+        <div style="display:flex;gap:8px;">
+          <a
+            href="https://accounts.google.com/AddSession?Email=dsc.or.kr"
+            target="_blank"
+            rel="noopener noreferrer"
+            style="flex:1;text-align:center;text-decoration:none;background:#1d4ed8;color:#fff;font-weight:700;padding:11px 14px;border-radius:10px;font-size:13.5px;"
+          >
+            🔑 다산교회(@dsc.or.kr) 계정 추가하기
+          </a>
+          <button
+            type="button"
+            onclick="closeDscAccountGuideModal()"
+            style="background:#e2e8f0;color:#1e293b;border:none;font-weight:600;padding:11px 14px;border-radius:10px;font-size:13.5px;cursor:pointer;"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeDscAccountGuideModal();
+  });
+
+  document.body.appendChild(modal);
+}
+
+function closeDscAccountGuideModal() {
+  const modal = document.getElementById('dsc-account-guide-modal');
+  if (modal) modal.remove();
+}
