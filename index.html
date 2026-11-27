@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#1a252f" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="다산교회" />
   <title>다산교회 | dsc.or.kr</title>
@@ -39,16 +40,10 @@
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-    @keyframes slideUpIn {
-      from { transform: translateY(28%); opacity: 0.35; }
-      to   { transform: translateY(0); opacity: 1; }
+    .smooth-fade {
+      transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform, opacity;
     }
-    @keyframes slideDownIn {
-      from { transform: translateY(-28%); opacity: 0.35; }
-      to   { transform: translateY(0); opacity: 1; }
-    }
-    .anim-slide-up   { animation: slideUpIn 0.38s cubic-bezier(0.22, 1, 0.36, 1); }
-    .anim-slide-down { animation: slideDownIn 0.38s cubic-bezier(0.22, 1, 0.36, 1); }
   </style>
 </head>
 <body class="min-h-dvh flex flex-col bg-skyBg text-slate-800 dark:bg-slate-950 dark:text-slate-100">
@@ -72,14 +67,11 @@
     </div>
   </div>
 
-  <!-- 2. 메인 헤더 -->
+  <!-- 2. 메인 헤더 (황금색 '다산교회' 단일 표기) -->
   <header class="bg-white/95 dark:bg-slate-900/95 backdrop-blur sticky top-0 z-40 border-b border-gray-200 dark:border-slate-800 shrink-0">
-    <div class="max-w-3xl mx-auto px-3.5 h-13 py-2 flex items-center justify-between gap-2">
-      <a href="#" onclick="switchBottomTab('all'); return false;" class="flex items-center gap-2 shrink-0">
-        <div class="w-8 h-8 rounded-lg bg-navy dark:bg-slate-800 border border-transparent dark:border-gold/40 flex items-center justify-center text-gold font-bold text-xs shadow-sm">
-          다산
-        </div>
-        <span class="text-lg font-bold text-navy dark:text-white tracking-tight">다산교회</span>
+    <div class="max-w-3xl mx-auto px-3.5 py-2 flex items-center justify-between gap-2">
+      <a href="#" onclick="switchBottomTab('all'); return false;" class="flex items-center shrink-0">
+        <span class="text-lg font-extrabold text-gold tracking-tight drop-shadow-sm">다산교회</span>
       </a>
 
       <div class="flex items-center gap-1.5">
@@ -109,10 +101,10 @@
     </div>
   </header>
 
-  <!-- 3. 메인 뷰포트 (상단~하단 고정바 사이 높이에 맞춰 하단 여백 최소화) -->
+  <!-- 3. 메인 뷰포트 -->
   <main class="flex-1 max-w-3xl w-full mx-auto px-3.5 pt-2.5 pb-20 flex flex-col gap-2.5">
 
-    <!-- [전체메뉴] 상하 슬라이드 활동사진 + 확장 영역 -->
+    <!-- [전체메뉴] 상단: 나의 대시보드 / 하단: 물 흐르는 상하 슬라이드 앨범 + BGM -->
     <section id="tab-view-all" class="flex-1 flex flex-col gap-2.5">
 
       <!-- 다음 예배 한 줄 알림 -->
@@ -128,12 +120,15 @@
         </a>
       </div>
 
-      <!-- 모바일 화면 높이에 맞춘 상하(세로) 슬라이드 활동사진 카드 -->
+      <!-- 1) 나의 대시보드 (앨범 위로 이동) -->
+      <div id="personalized-card" class="shrink-0"></div>
+
+      <!-- 2) 활동사진 앨범 (물 흐르는 상하 슬라이드 + BGM 제어) -->
       <div class="flex-1 min-h-[300px] sm:min-h-[360px] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-gray-200/80 dark:border-slate-800 flex flex-col">
         <div id="gallery-slider-stage" class="relative flex-1 min-h-[240px] bg-navyDark overflow-hidden select-none">
           <img id="hero-gallery-img" src="" alt="다산교회 활동사진"
-            class="w-full h-full object-cover" />
-          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent p-3.5 pt-10 flex items-end justify-between gap-2">
+            class="w-full h-full object-cover smooth-fade" />
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent p-3.5 pt-10 flex items-end justify-between gap-2 pointer-events-none">
             <div class="min-w-0">
               <div id="hero-gallery-caption" class="text-white font-bold text-sm truncate">다산교회 활동사진</div>
               <div id="hero-gallery-sub" class="text-white/80 text-[11px] truncate">함께 예배하고 섬기는 다산교회 공동체</div>
@@ -142,20 +137,20 @@
           </div>
 
           <!-- 상 / 하 수동 이동 버튼 -->
-          <div class="absolute right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5">
-            <button type="button" onclick="stepGallerySlide(-1)" aria-label="위로 이동"
+          <div class="absolute right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-10">
+            <button type="button" onclick="stepGallerySlide(-1)" aria-label="위로 부드럽게 이동"
               class="w-8 h-8 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center text-xs transition">
               ▲
             </button>
-            <button type="button" onclick="stepGallerySlide(1)" aria-label="아래로 이동"
+            <button type="button" onclick="stepGallerySlide(1)" aria-label="아래로 부드럽게 이동"
               class="w-8 h-8 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center text-xs transition">
               ▼
             </button>
           </div>
         </div>
 
-        <!-- 상하 자동 이동 방향 제어 바 -->
-        <div class="px-3 py-2 flex items-center justify-between gap-2 bg-gray-50/90 dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 shrink-0">
+        <!-- 상하 흐름 제어 + 배경음악(BGM) + 전체업무 -->
+        <div class="px-3 py-2 flex items-center justify-between gap-2 bg-gray-50/90 dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 shrink-0 flex-wrap">
           <div class="inline-flex items-center gap-1 bg-white dark:bg-slate-800 p-0.5 rounded-lg border border-gray-200 dark:border-slate-700">
             <button type="button" id="btn-dir-rev" onclick="setGalleryDirection(-1)"
               class="px-2 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition">
@@ -170,29 +165,42 @@
               ▼ 아래로
             </button>
           </div>
-          <button type="button" onclick="openFullMenuDrawer()"
-            class="text-[11px] font-bold text-navy dark:text-gold hover:underline">
-            전체업무 목록 →
-          </button>
+
+          <div class="flex items-center gap-2.5">
+            <button type="button" id="bgm-toggle-btn" onclick="toggleAlbumBgm()"
+              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100/80 dark:bg-amber-900/30 text-amber-900 dark:text-gold border border-amber-300/60 dark:border-gold/30 transition">
+              <span id="bgm-icon">♪</span>
+              <span id="bgm-label">BGM 재생</span>
+            </button>
+            <button type="button" onclick="openFullMenuDrawer()"
+              class="text-[11px] font-bold text-navy dark:text-gold hover:underline">
+              전체업무 →
+            </button>
+          </div>
+        </div>
+
+        <!-- 앨범 배경음악 플레이어 슬롯 (https://www.youtube.com/watch?v=aWzWjHUfpvU) -->
+        <div id="album-bgm-player" class="hidden px-3 py-1.5 bg-navyDark text-white text-[11px] flex items-center justify-between gap-2 border-t border-white/10">
+          <span class="truncate text-goldLight">♪ 앨범 배경음악 연결됨 (aWzWjHUfpvU)</span>
+          <div id="bgm-iframe-wrap" class="w-1 h-1 overflow-hidden opacity-0 pointer-events-none"></div>
+          <a href="https://www.youtube.com/watch?v=aWzWjHUfpvU" target="_blank" rel="noopener noreferrer"
+            class="underline text-gold shrink-0">유튜브 열기</a>
         </div>
       </div>
-
-      <!-- 로그인(성도 Lv.2+) 시 확장되는 나의 신앙 카드 (비로그인 시 높이 최소화) -->
-      <div id="personalized-card" class="shrink-0"></div>
 
     </section>
 
     <!-- [예배출석및예약] 뷰 -->
     <section id="tab-view-worship" class="hidden space-y-3"></section>
 
-    <!-- [나의메뉴] 뷰 -->
+    <!-- [나의메뉴 = Quick 메뉴 / 즐겨찾기] 뷰 -->
     <section id="tab-view-my" class="hidden space-y-3"></section>
 
   </main>
 
   <!-- 4. 하단 고정 네비게이션: [전체메뉴] [예배출석및예약] [나의메뉴] -->
   <nav class="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-gray-200 dark:border-slate-800 safe-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
-    <div class="max-w-3xl mx-auto grid grid-cols-3 h-15 py-1.5">
+    <div class="max-w-3xl mx-auto grid grid-cols-3 py-1.5">
       <button type="button" data-tab="all" onclick="switchBottomTab('all')"
         class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-navy dark:text-gold font-bold transition">
         <span class="text-base leading-none">☰</span>
@@ -205,7 +213,7 @@
       </button>
       <button type="button" data-tab="my" onclick="switchBottomTab('my')"
         class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition">
-        <span class="text-base leading-none">👤</span>
+        <span class="text-base leading-none">⭐</span>
         <span class="text-[11px] tracking-tight">나의메뉴</span>
       </button>
     </div>

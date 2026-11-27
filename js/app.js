@@ -29,6 +29,8 @@ import { BookRequestModule } from './modules/BookRequestModule.js';
 import { AttendanceModule, validateAttendanceDateAndService } from './modules/AttendanceModule.js';
 
 const SESSION_KEY = 'dsc_portal_session_v4';
+const QUICK_FAV_KEY = 'dsc_quick_favorites_v1';
+const ALBUM_BGM_VIDEO_ID = 'aWzWjHUfpvU';
 const SESSION_MS = 10 * 60 * 1000;
 let sessionTimerHandle = null;
 
@@ -77,6 +79,24 @@ function showToast(msg) {
   window.__dscToast = setTimeout(() => el.classList.add('hidden'), 2500);
 }
 
+// 즐겨찾기(Quick 메뉴) 관리
+function getQuickFavorites() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(QUICK_FAV_KEY) || 'null');
+    if (Array.isArray(saved) && saved.length) return saved;
+  } catch (e) {}
+  return SERVICES.filter(s => s.active).slice(0, 6).map(s => s.id);
+}
+
+function toggleQuickFavorite(serviceId) {
+  const current = getQuickFavorites();
+  const exists = current.includes(serviceId);
+  const next = exists ? current.filter(id => id !== serviceId) : [...current, serviceId];
+  localStorage.setItem(QUICK_FAV_KEY, JSON.stringify(next));
+  showToast(exists ? '즐겨찾기에서 해제했습니다.' : '⭐ Quick 메뉴에 추가했습니다.');
+  if (state.currentTab === 'my') renderMyTab();
+}
+
 function makeSlideSvg(title, sub, c1, c2) {
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600'>
     <defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='${c1}'/><stop offset='100%' stop-color='${c2}'/></linearGradient></defs>
@@ -91,15 +111,19 @@ function makeSlideSvg(title, sub, c1, c2) {
 const DEFAULT_SLIDES = [
   { thumb: makeSlideSvg('다산교회 안식일예배', '매주 토요일 오전 10:00 · 본당', '#1a252f', '#2c3e50'), title: '안식일학교 및 대예배', sub: '매주 토요일 09:30 / 10:00 · 다산교회 본당' },
   { thumb: makeSlideSvg('화요 · 금요 저녁예배', '말씀과 중보기도로 세워가는 공동체', '#1d3557', '#1a252f'), title: '화요 · 금요 저녁예배', sub: '매주 화·금 저녁 19:30 · 함께 기도해요' },
-  { thumb: makeSlideSvg('함께 섬기는 다산교회', '소그룹 · 패스파인더 · 어드벤처러', '#263849', '#141d26'), title: '다산교회 활동앨범', sub: '상하 슬라이드로 둘러보는 교회 소식' }
+  { thumb: makeSlideSvg('함께 섬기는 다산교회', '소그룹 · 패스파인더 · 어드벤처러', '#263849', '#141d26'), title: '다산교회 활동앨범', sub: '물 흐르듯 이어지는 교회 소식' }
 ];
 
-// 상하(세로) 슬라이더
-const verticalSlider = {
+// 물 흐르듯 부드럽게 이어지는 상하(세로) 슬라이더
+const smoothVerticalSlider = {
   items: DEFAULT_SLIDES.slice(),
   index: 0,
-  direction: 1, // 1: 아래로(정방향), -1: 위로(역방향), 0: 정지
-  timer: null,
+  direction: 1, // 1: 아래로, -1: 위로, 0: 정지
+  rafId: null,
+  lastTick: 0,
+  intervalMs: 4200,
+  transitioning: false,
+
   setItems(albums) {
     const flat = [];
     (albums || []).forEach(alb => (alb.photos || []).forEach(p => {
@@ -107,19 +131,59 @@ const verticalSlider = {
     }));
     this.items = flat.length ? flat.slice(0, 20) : DEFAULT_SLIDES.slice();
     this.index = 0;
-    this.render(1);
-    this.restart();
+    this.renderImmediate();
+    this.startLoop();
   },
+
   step(delta) {
-    if (!this.items.length) return;
-    this.index = (this.index + delta + this.items.length) % this.items.length;
-    this.render(delta >= 0 ? 1 : -1);
+    if (!this.items.length || this.transitioning) return;
+    this.transitioning = true;
+    const dirSign = delta >= 0 ? 1 : -1;
+    const img = document.getElementById('hero-gallery-img');
+    const nextIdx = (this.index + delta + this.items.length) % this.items.length;
+
+    if (!img) {
+      this.index = nextIdx;
+      this.renderImmediate();
+      this.transitioning = false;
+      return;
+    }
+
+    // 물 흐르듯 부드러운 아웃 -> 인 크로스페이드 + 수직 드리프트
+    img.style.opacity = '0';
+    img.style.transform = `translateY(${dirSign > 0 ? '-18px' : '18px'}) scale(1.01)`;
+
+    setTimeout(() => {
+      this.index = nextIdx;
+      const item = this.items[this.index] || DEFAULT_SLIDES[0];
+      img.src = item.thumb;
+      const cap = document.getElementById('hero-gallery-caption');
+      const sub = document.getElementById('hero-gallery-sub');
+      const cnt = document.getElementById('hero-gallery-counter');
+      if (cap) cap.textContent = item.title;
+      if (sub) sub.textContent = item.sub || '';
+      if (cnt) cnt.textContent = `${this.index + 1} / ${this.items.length}`;
+
+      img.style.transform = `translateY(${dirSign > 0 ? '18px' : '-18px'}) scale(1.01)`;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          img.style.opacity = '1';
+          img.style.transform = 'translateY(0) scale(1)';
+          setTimeout(() => {
+            this.transitioning = false;
+          }, 650);
+        });
+      });
+    }, 260);
   },
+
   setDirection(dir) {
     this.direction = dir;
+    this.lastTick = performance.now();
     this.updateBtns();
-    this.restart();
+    this.startLoop();
   },
+
   updateBtns() {
     const active = 'px-2 py-1 rounded-md text-[11px] font-bold bg-navy text-white dark:bg-gold dark:text-navyDark transition';
     const idle = 'px-2 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition';
@@ -130,13 +194,23 @@ const verticalSlider = {
     if (p) p.className = this.direction === 0 ? active : idle;
     if (f) f.className = this.direction === 1 ? active : idle;
   },
-  restart() {
-    if (this.timer) clearInterval(this.timer);
-    if (this.direction !== 0 && this.items.length > 1) {
-      this.timer = setInterval(() => this.step(this.direction), 3800);
-    }
+
+  startLoop() {
+    if (this.rafId) cancelAnimationFrame(this.rafId);
+    this.lastTick = performance.now();
+    const loop = now => {
+      if (this.direction !== 0 && this.items.length > 1) {
+        if (now - this.lastTick >= this.intervalMs) {
+          this.lastTick = now;
+          this.step(this.direction);
+        }
+      }
+      this.rafId = requestAnimationFrame(loop);
+    };
+    this.rafId = requestAnimationFrame(loop);
   },
-  render(moveDir = 1) {
+
+  renderImmediate() {
     const item = this.items[this.index] || DEFAULT_SLIDES[0];
     const img = document.getElementById('hero-gallery-img');
     const cap = document.getElementById('hero-gallery-caption');
@@ -144,9 +218,8 @@ const verticalSlider = {
     const cnt = document.getElementById('hero-gallery-counter');
     if (img) {
       img.src = item.thumb;
-      img.classList.remove('anim-slide-up', 'anim-slide-down');
-      void img.offsetWidth;
-      img.classList.add(moveDir >= 0 ? 'anim-slide-up' : 'anim-slide-down');
+      img.style.opacity = '1';
+      img.style.transform = 'translateY(0) scale(1)';
     }
     if (cap) cap.textContent = item.title;
     if (sub) sub.textContent = item.sub || '';
@@ -154,6 +227,25 @@ const verticalSlider = {
     this.updateBtns();
   }
 };
+
+// 앨범 배경음악(BGM) 토글
+let bgmPlaying = false;
+function toggleAlbumBgm() {
+  const bar = document.getElementById('album-bgm-player');
+  const wrap = document.getElementById('bgm-iframe-wrap');
+  const label = document.getElementById('bgm-label');
+  bgmPlaying = !bgmPlaying;
+
+  if (bar) bar.classList.toggle('hidden', !bgmPlaying);
+  if (label) label.textContent = bgmPlaying ? 'BGM 정지' : 'BGM 재생';
+
+  if (wrap) {
+    wrap.innerHTML = bgmPlaying
+      ? `<iframe width="120" height="68" src="https://www.youtube.com/embed/${ALBUM_BGM_VIDEO_ID}?autoplay=1&loop=1&playlist=${ALBUM_BGM_VIDEO_ID}" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe>`
+      : '';
+  }
+  showToast(bgmPlaying ? '♪ 앨범 배경음악을 재생합니다.' : '♪ 앨범 배경음악을 정지했습니다.');
+}
 
 function getUpcomingWorshipSlots() {
   const now = new Date();
@@ -174,17 +266,27 @@ function getUpcomingWorshipSlots() {
   }).sort((a, b) => a.target - b.target);
 }
 
-// 로그인 시에만 홈 하단에 확장되는 신앙 요약 카드 (비로그인 시 높이 점유 안 함)
+// 나의 대시보드 (앨범 위에 배치)
 function renderPersonalizedCard() {
   const card = document.getElementById('personalized-card');
   if (!card) return;
   const userLv = ROLE_LEVEL[state.currentRole] || 1;
-  if (userLv < 2) { card.innerHTML = ''; return; }
-
   const p = state.currentUserProfile;
   const real = Boolean(state.currentIdToken) && Boolean(p);
+
+  if (userLv < 2) {
+    card.innerHTML = `
+      <div class="bg-white dark:bg-slate-900 rounded-2xl px-3.5 py-2.5 shadow-sm border border-gray-200/80 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+        <span class="font-bold text-navy dark:text-white">나의 대시보드</span>
+        <button type="button" onclick="switchBottomTab('my')" class="text-gold font-bold hover:underline">
+          ⭐ Quick 메뉴 보기 →
+        </button>
+      </div>`;
+    return;
+  }
+
   card.innerHTML = `
-    <div class="bg-white dark:bg-slate-900 rounded-2xl p-3 shadow-sm border border-gray-200/80 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl px-3.5 py-2.5 shadow-sm border border-gray-200/80 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
       <div class="flex items-center gap-2 min-w-0">
         <span class="font-bold text-navy dark:text-gold shrink-0">Lv.${userLv} ${state.currentRole}</span>
         <span class="truncate text-gray-600 dark:text-slate-300">${real ? sanitizeMemberName(p.name) : '시연 모드'} · ${real ? (p.groupName || '미배정') : '겸손반'}</span>
@@ -211,7 +313,6 @@ function switchBottomTab(tab) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 전체업무 목록 모달 ([전체메뉴] 상단 링크에서 오픈)
 function openFullMenuDrawer() {
   const userLv = ROLE_LEVEL[state.currentRole] || 1;
   const modal = document.getElementById('service-modal');
@@ -262,29 +363,61 @@ function renderWorshipTab() {
     </div>`;
 }
 
+// [나의메뉴] = Quick 메뉴(즐겨찾기)
 function renderMyTab() {
   const el = document.getElementById('tab-view-my');
   if (!el) return;
   const userLv = ROLE_LEVEL[state.currentRole] || 1;
+  const favIds = getQuickFavorites();
+  const favServices = SERVICES.filter(s => favIds.includes(s.id) && (s.active || userLv >= 5));
+
   el.innerHTML = `
     <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-3">
       <div class="flex items-center justify-between">
         <div>
-          <div class="font-bold text-sm text-navy dark:text-white">${state.currentUserProfile ? sanitizeMemberName(state.currentUserProfile.name) : state.currentRole}</div>
-          <div class="text-xs text-gray-500">등급: Lv.${userLv} ${state.currentRole}</div>
+          <h2 class="font-bold text-sm text-navy dark:text-white">⭐ Quick 메뉴 (즐겨찾기)</h2>
+          <p class="text-[11px] text-gray-500 dark:text-slate-400">자주 쓰는 메뉴를 빠르게 실행하세요</p>
         </div>
-        <button type="button" onclick="handleAuthClick()" class="bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-bold px-3.5 py-2 rounded-xl">
+        <button type="button" onclick="handleAuthClick()" class="bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-bold px-3 py-1.5 rounded-xl">
           ${userLv >= 2 ? '로그아웃' : '로그인'}
         </button>
       </div>
-      ${userLv >= 2 ? `
-        <div class="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-xs">
-          <span>10분 세션 자동 유지</span>
-          <button type="button" onclick="handleExtendSession()" class="bg-amber-500 text-white font-bold px-2.5 py-1 rounded-lg">연장</button>
-        </div>` : ''}
+
+      ${favServices.length ? `
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          ${favServices.map(s => {
+            const ok = userLv >= s.minRole && s.active;
+            return `
+              <div class="relative p-3 rounded-xl border bg-skyBg/70 dark:bg-slate-800 border-gray-200 dark:border-slate-700 flex flex-col justify-between gap-2">
+                <button type="button" onclick="openServiceById('${s.id}')" class="text-left ${ok ? '' : 'opacity-60'}">
+                  <div class="text-base">${ok ? s.icon : '🔒'}</div>
+                  <div class="font-bold text-xs text-navy dark:text-white mt-1">${s.title}</div>
+                  <div class="text-[10px] text-gray-500 truncate">${s.desc}</div>
+                </button>
+                <button type="button" onclick="toggleQuickFavorite('${s.id}')"
+                  class="self-end text-[10px] font-bold text-amber-600 dark:text-gold hover:underline">
+                  ★ 즐겨찾기 해제
+                </button>
+              </div>`;
+          }).join('')}
+        </div>` : `<div class="text-center py-4 text-xs text-gray-500">등록된 Quick 메뉴가 없습니다. 아래에서 추가해 주세요.</div>`}
     </div>
+
     <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-2">
-      <div class="font-bold text-xs text-navy dark:text-white">🎭 5단계 권한 시연</div>
+      <div class="font-bold text-xs text-navy dark:text-white">➕ 즐겨찾기 편집</div>
+      <div class="flex flex-wrap gap-1.5">
+        ${SERVICES.filter(s => s.active || userLv >= 5).map(s => {
+          const isFav = favIds.includes(s.id);
+          return `<button type="button" onclick="toggleQuickFavorite('${s.id}')"
+            class="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition ${isFav ? 'bg-gold/20 border-gold text-navy dark:text-gold' : 'bg-skyBg/60 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300'}">
+            ${isFav ? '★' : '☆'} ${s.title}
+          </button>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-2">
+      <div class="font-bold text-xs text-navy dark:text-white">🎭 5단계 권한 시연 (현재: Lv.${userLv} ${state.currentRole})</div>
       <div class="grid grid-cols-1 gap-1.5">
         ${ROLE_DEFS.map(r => `<button type="button" onclick="changePreviewRole('${r.key}')"
           class="flex justify-between px-3 py-2 rounded-xl border text-xs font-bold ${state.currentRole === r.key ? 'bg-navy text-white border-navy dark:bg-gold dark:text-navyDark' : 'bg-skyBg/60 dark:bg-slate-800 border-gray-200 dark:border-slate-700'}">
@@ -517,7 +650,7 @@ async function loadHub() {
       ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 whitespace-nowrap'
       : 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 whitespace-nowrap';
   }
-  verticalSlider.setItems(state.hubCache.galleries);
+  smoothVerticalSlider.setItems(state.hubCache.galleries);
 }
 
 function updateCountdown() {
@@ -541,7 +674,7 @@ function bindVerticalSwipe() {
   stage.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
   stage.addEventListener('touchend', e => {
     const dy = e.changedTouches[0].clientY - startY;
-    if (Math.abs(dy) > 35) verticalSlider.step(dy < 0 ? 1 : -1);
+    if (Math.abs(dy) > 35) smoothVerticalSlider.step(dy < 0 ? 1 : -1);
   }, { passive: true });
 }
 
@@ -549,6 +682,8 @@ Object.assign(window, {
   toggleTheme,
   switchBottomTab,
   openFullMenuDrawer,
+  toggleQuickFavorite,
+  toggleAlbumBgm,
   openWorshipReserveForm,
   handleWorshipReserveSubmit,
   openServiceById,
@@ -561,8 +696,8 @@ Object.assign(window, {
   handleAuthClick,
   handleExtendSession,
   handleAttendanceSubmit,
-  stepGallerySlide: d => verticalSlider.step(d),
-  setGalleryDirection: d => verticalSlider.setDirection(d),
+  stepGallerySlide: d => smoothVerticalSlider.step(d),
+  setGalleryDirection: d => smoothVerticalSlider.setDirection(d),
   syncWorshipTypeByDate: dateStr => {
     const sel = document.getElementById('att-service-select');
     if (sel) sel.innerHTML = renderWorshipOptionsHtml(dateStr);
@@ -571,7 +706,8 @@ Object.assign(window, {
 
 function init() {
   initTheme();
-  verticalSlider.render(1);
+  smoothVerticalSlider.renderImmediate();
+  smoothVerticalSlider.startLoop();
   bindVerticalSwipe();
   const saved = loadSession();
   if (saved) {
