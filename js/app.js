@@ -35,6 +35,7 @@ const HUB_CACHE_TTL_MS = 10 * 60 * 1000;
 const ALBUM_BGM_VIDEO_ID = 'aWzWjHUfpvU';
 const SESSION_MS = 10 * 60 * 1000;
 let sessionTimerHandle = null;
+let allMenuExpanded = false; // 기본값: false (기본 화면에는 업무별 전체 메뉴 숨김)
 
 function saveSession(role, profile = null, idToken = '') {
   if (!role || role === '외부인') { localStorage.removeItem(SESSION_KEY); return; }
@@ -388,7 +389,7 @@ function renderPersonalizedCard() {
     </div>`;
 }
 
-// 업무별 전체 메뉴 렌더링 ([전체메뉴] 클릭 시 바로 노출)
+// 업무별 전체 메뉴 렌더링
 function renderAllBusinessMenu() {
   const grid = document.getElementById('all-business-menu-grid');
   const badge = document.getElementById('all-menu-role-badge');
@@ -414,8 +415,52 @@ function renderAllBusinessMenu() {
   }).join('');
 }
 
-// 3단 고정 네비게이션 전환: [전체메뉴] [예배출석및예약] [즐겨찾기메뉴]
+function applyAllTabMode() {
+  const galleryPanel = document.getElementById('home-gallery-panel');
+  const menuPanel = document.getElementById('all-business-menu');
+  if (galleryPanel) galleryPanel.classList.toggle('hidden', allMenuExpanded);
+  if (menuPanel) menuPanel.classList.toggle('hidden', !allMenuExpanded);
+  if (allMenuExpanded) {
+    renderAllBusinessMenu();
+  }
+}
+
+function toggleAllMenuExpanded(forceState = null) {
+  allMenuExpanded = typeof forceState === 'boolean' ? forceState : !allMenuExpanded;
+  state.currentTab = 'all';
+  ['all', 'worship', 'my'].forEach(t => {
+    const el = document.getElementById('tab-view-' + t);
+    if (el) el.classList.toggle('hidden', t !== 'all');
+  });
+  document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
+    const active = btn.getAttribute('data-tab') === 'all';
+    btn.className = active
+      ? 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-navy dark:text-gold font-bold transition'
+      : 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition';
+  });
+  applyAllTabMode();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetToHomeView() {
+  allMenuExpanded = false;
+  switchBottomTab('all');
+}
+
+// 3단 고정 네비게이션 전환:
+// - [전체메뉴] 클릭: 기본 화면에서는 전체 메뉴를 열고, 이미 열린 상태에서는 다시 기본 화면으로 복귀
+// - [예배출석및예약] / [즐겨찾기메뉴] 클릭: 해당 탭으로 이동하며 전체 메뉴 펼침 상태 초기화
 function switchBottomTab(tab) {
+  if (tab === 'all') {
+    if (state.currentTab === 'all') {
+      allMenuExpanded = !allMenuExpanded;
+    } else {
+      allMenuExpanded = true;
+    }
+  } else {
+    allMenuExpanded = false;
+  }
+
   state.currentTab = tab;
   ['all', 'worship', 'my'].forEach(t => {
     const el = document.getElementById('tab-view-' + t);
@@ -427,7 +472,8 @@ function switchBottomTab(tab) {
       ? 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-navy dark:text-gold font-bold transition'
       : 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition';
   });
-  if (tab === 'all') renderAllBusinessMenu();
+
+  if (tab === 'all') applyAllTabMode();
   if (tab === 'worship') renderWorshipTab();
   if (tab === 'my') renderMyTab();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -956,6 +1002,8 @@ function bindVerticalSwipe() {
 Object.assign(window, {
   toggleTheme,
   switchBottomTab,
+  toggleAllMenuExpanded,
+  resetToHomeView,
   toggleQuickFavorite,
   toggleAlbumBgm,
   openWorshipReserveForm,
@@ -982,6 +1030,8 @@ Object.assign(window, {
 
 function init() {
   initTheme();
+  allMenuExpanded = false;
+  applyAllTabMode();
   smoothVerticalSlider.renderImmediate();
   smoothVerticalSlider.preloadNextItem();
   smoothVerticalSlider.startLoop();
