@@ -5,7 +5,7 @@ import {
   SERVICES,
   normalizeRoleName,
   getRoleNameByLevel
-} from './config.js';
+} from './core/config.js';
 import {
   state,
   getViewMode,
@@ -15,18 +15,18 @@ import {
   getSmallGroupNames,
   getDefaultWorshipByDate,
   renderWorshipOptionsHtml
-} from './state.js';
+} from './core/state.js';
 import {
   callApi,
   loadSmallGroupMaster,
   resolveGroupByMemberName,
   fetchPublicHubData
-} from './api.js';
-import { WeeklyDutyModule } from './WeeklyDutyModule.js';
-import { DarakbangModule } from './DarakbangModule.js';
-import { OfferingsModule } from './OfferingsModule.js';
-import { BookRequestModule } from './BookRequestModule.js';
-import { AttendanceModule, validateAttendanceDateAndService } from './AttendanceModule.js';
+} from './core/api.js';
+import { WeeklyDutyModule } from './modules/WeeklyDutyModule.js';
+import { DarakbangModule } from './modules/DarakbangModule.js';
+import { OfferingsModule } from './modules/OfferingsModule.js';
+import { BookRequestModule } from './modules/BookRequestModule.js';
+import { AttendanceModule, validateAttendanceDateAndService } from './modules/AttendanceModule.js';
 
 const SESSION_KEY = 'dsc_portal_session_v4';
 const SESSION_MS = 10 * 60 * 1000;
