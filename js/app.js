@@ -103,7 +103,7 @@ function writeCachedHub(data) {
   } catch (e) {}
 }
 
-// 즐겨찾기(Quick 메뉴) 관리
+// 즐겨찾기메뉴 관리
 function getQuickFavorites() {
   try {
     const saved = JSON.parse(localStorage.getItem(QUICK_FAV_KEY) || 'null');
@@ -117,7 +117,7 @@ function toggleQuickFavorite(serviceId) {
   const exists = current.includes(serviceId);
   const next = exists ? current.filter(id => id !== serviceId) : [...current, serviceId];
   localStorage.setItem(QUICK_FAV_KEY, JSON.stringify(next));
-  showToast(exists ? '즐겨찾기에서 해제했습니다.' : '⭐ Quick 메뉴에 추가했습니다.');
+  showToast(exists ? '즐겨찾기에서 해제했습니다.' : '⭐ 즐겨찾기메뉴에 추가했습니다.');
   if (state.currentTab === 'my') renderMyTab();
 }
 
@@ -135,7 +135,7 @@ function makeSlideSvg(title, sub, c1, c2) {
 const DEFAULT_SLIDES = [
   { thumb: makeSlideSvg('다산교회 안식일예배', '매주 토요일 오전 10:00 · 본당', '#1a252f', '#2c3e50'), title: '안식일학교 및 대예배', sub: '매주 토요일 09:30 / 10:00 · 다산교회 본당' },
   { thumb: makeSlideSvg('화요 · 금요 저녁예배', '말씀과 중보기도로 세워가는 공동체', '#1d3557', '#1a252f'), title: '화요 · 금요 저녁예배', sub: '매주 화·금 저녁 19:30 · 함께 기도해요' },
-  { thumb: makeSlideSvg('함께 섬기는 다산교회', '소그룹 · 패스파인더 · 어드벤처러', '#263849', '#141d26'), title: '다산교회 활동앨범', sub: '이어지는 상하 슬라이드로 둘러보는 교회 소식' }
+  { thumb: makeSlideSvg('함께 섬기는 다산교회', '소그룹 · 패스파인더 · 어드벤처러', '#263849', '#141d26'), title: '다산교회 활동앨범', sub: '천천히 이어지는 상하 슬라이드' }
 ];
 
 function isValidImageSrc(url) {
@@ -143,16 +143,18 @@ function isValidImageSrc(url) {
   return s.startsWith('https://') || s.startsWith('http://') || s.startsWith('data:image/');
 }
 
-// 한 장이 한쪽으로 흘러가며 다른 쪽에서 다음 사진이 이어져 나오는 상하 슬라이더
+// 기본 위로(-1) 천천히 흐르는 상하 슬라이더 (다음 1장만 미리 로드)
 const smoothVerticalSlider = {
   items: DEFAULT_SLIDES.slice(),
   index: 0,
-  direction: 1, // 1: 아래로 흐르며 다음 사진 진입, -1: 위로 흐르며 다음 사진 진입, 0: 정지
+  direction: -1, // 기본값: -1(위로 천천히 이동), 1(아래로), 0(정지)
   rafId: null,
   lastTick: 0,
-  intervalMs: 4200,
+  intervalMs: 7500,
+  slideMs: 1400,
   transitioning: false,
   activeSlot: 'a',
+  preloadedCache: new Map(),
 
   getSlots() {
     const a = document.getElementById('hero-gallery-img-a');
@@ -175,18 +177,41 @@ const smoothVerticalSlider = {
     }));
     this.items = flat.length ? flat.slice(0, 20) : DEFAULT_SLIDES.slice();
     this.index = 0;
+    this.preloadedCache.clear();
     this.renderImmediate();
+    this.preloadNextItem();
     this.startLoop();
   },
 
   preloadImage(src) {
+    if (!src) return Promise.resolve(false);
+    if (this.preloadedCache.has(src)) {
+      return Promise.resolve(this.preloadedCache.get(src));
+    }
     return new Promise(resolve => {
       const probe = new Image();
       probe.decoding = 'async';
-      probe.onload = () => resolve(true);
-      probe.onerror = () => resolve(false);
+      probe.loading = 'eager';
+      probe.onload = () => {
+        this.preloadedCache.set(src, true);
+        resolve(true);
+      };
+      probe.onerror = () => {
+        this.preloadedCache.set(src, false);
+        resolve(false);
+      };
       probe.src = src;
     });
+  },
+
+  preloadNextItem() {
+    if (!this.items.length) return;
+    const stepDir = this.direction === 0 ? -1 : this.direction;
+    const peekIdx = (this.index + stepDir + this.items.length) % this.items.length;
+    const peekItem = this.items[peekIdx];
+    if (peekItem && peekItem.thumb) {
+      this.preloadImage(peekItem.thumb);
+    }
   },
 
   async step(delta) {
@@ -203,22 +228,22 @@ const smoothVerticalSlider = {
       const targetItem = loaded ? candidate : DEFAULT_SLIDES[nextIdx % DEFAULT_SLIDES.length];
 
       const { curr, next } = slots;
-      const ease = 'transform 0.72s cubic-bezier(0.22, 1, 0.36, 1)';
+      const calmEase = `transform ${this.slideMs}ms cubic-bezier(0.25, 0.8, 0.25, 1)`;
 
-      // dirSign === 1: 현재 사진이 아래(+100%)로 흘러가고 다음 사진이 위(-100%)에서 내려와 이어짐
-      // dirSign === -1: 현재 사진이 위(-100%)로 흘러가고 다음 사진이 아래(+100%)에서 올라와 이어짐
+      // dirSign === -1(기본 위로): 현재 사진이 위(-100%)로 부드럽게 올라가고 다음 사진이 아래(+100%)에서 올라와 이어짐
+      // dirSign === 1(아래로): 현재 사진이 아래(+100%)로 부드럽게 내려가고 다음 사진이 위(-100%)에서 내려와 이어짐
       next.style.transition = 'none';
       next.src = targetItem.thumb;
-      next.style.transform = `translateY(${dirSign > 0 ? '-100%' : '100%'})`;
+      next.style.transform = `translateY(${dirSign < 0 ? '100%' : '-100%'})`;
 
       curr.style.transition = 'none';
       curr.style.transform = 'translateY(0%)';
 
       void next.offsetHeight;
 
-      curr.style.transition = ease;
-      next.style.transition = ease;
-      curr.style.transform = `translateY(${dirSign > 0 ? '100%' : '-100%'})`;
+      curr.style.transition = calmEase;
+      next.style.transition = calmEase;
+      curr.style.transform = `translateY(${dirSign < 0 ? '-100%' : '100%'})`;
       next.style.transform = 'translateY(0%)';
 
       const cap = document.getElementById('hero-gallery-caption');
@@ -228,10 +253,11 @@ const smoothVerticalSlider = {
       if (sub) sub.textContent = targetItem.sub || '';
       if (cnt) cnt.textContent = `${nextIdx + 1} / ${this.items.length}`;
 
-      await new Promise(r => setTimeout(r, 740));
+      await new Promise(r => setTimeout(r, this.slideMs + 40));
 
       this.index = nextIdx;
       this.activeSlot = this.activeSlot === 'a' ? 'b' : 'a';
+      this.preloadNextItem();
     } finally {
       this.transitioning = false;
     }
@@ -241,6 +267,7 @@ const smoothVerticalSlider = {
     this.direction = dir;
     this.lastTick = performance.now();
     this.updateBtns();
+    this.preloadNextItem();
     this.startLoop();
   },
 
@@ -336,7 +363,7 @@ function getUpcomingWorshipSlots() {
   }).sort((a, b) => a.target - b.target);
 }
 
-// 나의 대시보드 (앨범 위에 배치)
+// 나의 대시보드 (비로그인 시 'Quick 메뉴 보기 →' 링크 제거)
 function renderPersonalizedCard() {
   const card = document.getElementById('personalized-card');
   if (!card) return;
@@ -348,9 +375,7 @@ function renderPersonalizedCard() {
     card.innerHTML = `
       <div class="bg-white dark:bg-slate-900 rounded-2xl px-3.5 py-2.5 shadow-sm border border-gray-200/80 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
         <span class="font-bold text-navy dark:text-white">나의 대시보드</span>
-        <button type="button" onclick="switchBottomTab('my')" class="text-gold font-bold hover:underline">
-          ⭐ Quick 메뉴 보기 →
-        </button>
+        <span class="text-[11px] text-gray-500 dark:text-slate-400">Lv.1 외부인</span>
       </div>`;
     return;
   }
@@ -365,7 +390,7 @@ function renderPersonalizedCard() {
     </div>`;
 }
 
-// 3단 고정 네비게이션 전환: [전체메뉴] [예배출석및예약] [나의메뉴]
+// 3단 고정 네비게이션 전환: [전체메뉴] [예배출석및예약] [즐겨찾기메뉴]
 function switchBottomTab(tab) {
   state.currentTab = tab;
   ['all', 'worship', 'my'].forEach(t => {
@@ -433,7 +458,7 @@ function renderWorshipTab() {
     </div>`;
 }
 
-// [나의메뉴] = Quick 메뉴(즐겨찾기)
+// [즐겨찾기메뉴]
 function renderMyTab() {
   const el = document.getElementById('tab-view-my');
   if (!el) return;
@@ -445,7 +470,7 @@ function renderMyTab() {
     <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-3">
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="font-bold text-sm text-navy dark:text-white">⭐ Quick 메뉴 (즐겨찾기)</h2>
+          <h2 class="font-bold text-sm text-navy dark:text-white">⭐ 즐겨찾기메뉴</h2>
           <p class="text-[11px] text-gray-500 dark:text-slate-400">자주 쓰는 메뉴를 빠르게 실행하세요</p>
         </div>
         <button type="button" onclick="handleAuthClick()" class="bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-bold px-3 py-1.5 rounded-xl">
@@ -470,7 +495,7 @@ function renderMyTab() {
                 </button>
               </div>`;
           }).join('')}
-        </div>` : `<div class="text-center py-4 text-xs text-gray-500">등록된 Quick 메뉴가 없습니다. 아래에서 추가해 주세요.</div>`}
+        </div>` : `<div class="text-center py-4 text-xs text-gray-500">등록된 즐겨찾기 메뉴가 없습니다. 아래에서 추가해 주세요.</div>`}
     </div>
 
     <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-2">
@@ -955,6 +980,7 @@ Object.assign(window, {
 function init() {
   initTheme();
   smoothVerticalSlider.renderImmediate();
+  smoothVerticalSlider.preloadNextItem();
   smoothVerticalSlider.startLoop();
   bindVerticalSwipe();
   const saved = loadSession();

@@ -104,7 +104,7 @@
   <!-- 3. 메인 뷰포트 -->
   <main class="flex-1 max-w-3xl w-full mx-auto px-3.5 pt-2.5 pb-20 flex flex-col gap-2.5">
 
-    <!-- [전체메뉴] 상단: 나의 대시보드 / 하단: 연속 상하 슬라이드 앨범 + BGM -->
+    <!-- [전체메뉴] 상단: 나의 대시보드 / 하단: 완만한 상하 슬라이드 앨범 + BGM -->
     <section id="tab-view-all" class="flex-1 flex flex-col gap-2.5">
 
       <!-- 다음 예배 한 줄 알림 -->
@@ -123,7 +123,7 @@
       <!-- 1) 나의 대시보드 -->
       <div id="personalized-card" class="shrink-0"></div>
 
-      <!-- 2) 활동사진 앨범 (한 장이 흘러가며 다른 쪽에서 다음 사진이 이어져 등장) -->
+      <!-- 2) 활동사진 앨범 (기본 위로 천천히 이어지는 슬라이드) -->
       <div class="flex-1 min-h-[300px] sm:min-h-[360px] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-gray-200/80 dark:border-slate-800 flex flex-col">
         <div id="gallery-slider-stage" class="relative flex-1 min-h-[240px] bg-navyDark overflow-hidden select-none">
           <img id="hero-gallery-img-a" src="" alt="다산교회 활동사진"
@@ -156,7 +156,7 @@
         <div class="px-3 py-2 flex items-center justify-between gap-2 bg-gray-50/90 dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 shrink-0 flex-wrap">
           <div class="inline-flex items-center gap-1 bg-white dark:bg-slate-800 p-0.5 rounded-lg border border-gray-200 dark:border-slate-700">
             <button type="button" id="btn-dir-rev" onclick="setGalleryDirection(-1)"
-              class="px-2 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition">
+              class="px-2 py-1 rounded-md text-[11px] font-bold bg-navy text-white dark:bg-gold dark:text-navyDark transition">
               ▲ 위로
             </button>
             <button type="button" id="btn-dir-pause" onclick="setGalleryDirection(0)"
@@ -164,7 +164,7 @@
               ⏸ 정지
             </button>
             <button type="button" id="btn-dir-fwd" onclick="setGalleryDirection(1)"
-              class="px-2 py-1 rounded-md text-[11px] font-bold bg-navy text-white dark:bg-gold dark:text-navyDark transition">
+              class="px-2 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition">
               ▼ 아래로
             </button>
           </div>
@@ -196,12 +196,12 @@
     <!-- [예배출석및예약] 뷰 -->
     <section id="tab-view-worship" class="hidden space-y-3"></section>
 
-    <!-- [나의메뉴 = Quick 메뉴 / 즐겨찾기] 뷰 -->
+    <!-- [즐겨찾기메뉴] 뷰 -->
     <section id="tab-view-my" class="hidden space-y-3"></section>
 
   </main>
 
-  <!-- 4. 하단 고정 네비게이션: [전체메뉴] [예배출석및예약] [나의메뉴] -->
+  <!-- 4. 하단 고정 네비게이션: [전체메뉴] [예배출석및예약] [즐겨찾기메뉴] -->
   <nav class="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-gray-200 dark:border-slate-800 safe-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
     <div class="max-w-3xl mx-auto grid grid-cols-3 py-1.5">
       <button type="button" data-tab="all" onclick="switchBottomTab('all')"
@@ -217,7 +217,7 @@
       <button type="button" data-tab="my" onclick="switchBottomTab('my')"
         class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition">
         <span class="text-base leading-none">⭐</span>
-        <span class="text-[11px] tracking-tight">나의메뉴</span>
+        <span class="text-[11px] tracking-tight">즐겨찾기메뉴</span>
       </button>
     </div>
   </nav>
