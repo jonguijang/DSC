@@ -30,6 +30,8 @@ import { AttendanceModule, validateAttendanceDateAndService } from './modules/At
 
 const SESSION_KEY = 'dsc_portal_session_v4';
 const QUICK_FAV_KEY = 'dsc_quick_favorites_v1';
+const HUB_CACHE_KEY = 'dsc_public_hub_cache_v1';
+const HUB_CACHE_TTL_MS = 10 * 60 * 1000;
 const ALBUM_BGM_VIDEO_ID = 'aWzWjHUfpvU';
 const SESSION_MS = 10 * 60 * 1000;
 let sessionTimerHandle = null;
@@ -79,6 +81,28 @@ function showToast(msg) {
   window.__dscToast = setTimeout(() => el.classList.add('hidden'), 2500);
 }
 
+function readCachedHub() {
+  try {
+    const raw = localStorage.getItem(HUB_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.data || !parsed.savedAt) return null;
+    if (Date.now() - parsed.savedAt > HUB_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeCachedHub(data) {
+  try {
+    localStorage.setItem(HUB_CACHE_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      data
+    }));
+  } catch (e) {}
+}
+
 // 즐겨찾기(Quick 메뉴) 관리
 function getQuickFavorites() {
   try {
@@ -111,7 +135,7 @@ function makeSlideSvg(title, sub, c1, c2) {
 const DEFAULT_SLIDES = [
   { thumb: makeSlideSvg('다산교회 안식일예배', '매주 토요일 오전 10:00 · 본당', '#1a252f', '#2c3e50'), title: '안식일학교 및 대예배', sub: '매주 토요일 09:30 / 10:00 · 다산교회 본당' },
   { thumb: makeSlideSvg('화요 · 금요 저녁예배', '말씀과 중보기도로 세워가는 공동체', '#1d3557', '#1a252f'), title: '화요 · 금요 저녁예배', sub: '매주 화·금 저녁 19:30 · 함께 기도해요' },
-  { thumb: makeSlideSvg('함께 섬기는 다산교회', '소그룹 · 패스파인더 · 어드벤처러', '#263849', '#141d26'), title: '다산교회 활동앨범', sub: '물 흐르듯 이어지는 교회 소식' }
+  { thumb: makeSlideSvg('함께 섬기는 다산교회', '소그룹 · 패스파인더 · 어드벤처러', '#263849', '#141d26'), title: '다산교회 활동앨범', sub: '이어지는 상하 슬라이드로 둘러보는 교회 소식' }
 ];
 
 function isValidImageSrc(url) {
@@ -119,15 +143,23 @@ function isValidImageSrc(url) {
   return s.startsWith('https://') || s.startsWith('http://') || s.startsWith('data:image/');
 }
 
-// 물 흐르듯 부드럽게 이어지는 상하(세로) 슬라이더
+// 한 장이 한쪽으로 흘러가며 다른 쪽에서 다음 사진이 이어져 나오는 상하 슬라이더
 const smoothVerticalSlider = {
   items: DEFAULT_SLIDES.slice(),
   index: 0,
-  direction: 1, // 1: 아래로, -1: 위로, 0: 정지
+  direction: 1, // 1: 아래로 흐르며 다음 사진 진입, -1: 위로 흐르며 다음 사진 진입, 0: 정지
   rafId: null,
   lastTick: 0,
   intervalMs: 4200,
   transitioning: false,
+  activeSlot: 'a',
+
+  getSlots() {
+    const a = document.getElementById('hero-gallery-img-a');
+    const b = document.getElementById('hero-gallery-img-b');
+    if (!a || !b) return null;
+    return this.activeSlot === 'a' ? { curr: a, next: b } : { curr: b, next: a };
+  },
 
   setItems(albums) {
     const flat = [];
@@ -159,47 +191,47 @@ const smoothVerticalSlider = {
 
   async step(delta) {
     if (!this.items.length || this.transitioning) return;
-    this.transitioning = true;
+    const slots = this.getSlots();
+    if (!slots) return;
 
+    this.transitioning = true;
     try {
       const dirSign = delta >= 0 ? 1 : -1;
-      const img = document.getElementById('hero-gallery-img');
       const nextIdx = (this.index + delta + this.items.length) % this.items.length;
-      const nextItem = this.items[nextIdx] || DEFAULT_SLIDES[0];
+      const candidate = this.items[nextIdx] || DEFAULT_SLIDES[0];
+      const loaded = await this.preloadImage(candidate.thumb);
+      const targetItem = loaded ? candidate : DEFAULT_SLIDES[nextIdx % DEFAULT_SLIDES.length];
 
-      if (!img) {
-        this.index = nextIdx;
-        this.renderImmediate();
-        return;
-      }
+      const { curr, next } = slots;
+      const ease = 'transform 0.72s cubic-bezier(0.22, 1, 0.36, 1)';
 
-      const loaded = await this.preloadImage(nextItem.thumb);
-      const targetItem = loaded ? nextItem : DEFAULT_SLIDES[nextIdx % DEFAULT_SLIDES.length];
+      // dirSign === 1: 현재 사진이 아래(+100%)로 흘러가고 다음 사진이 위(-100%)에서 내려와 이어짐
+      // dirSign === -1: 현재 사진이 위(-100%)로 흘러가고 다음 사진이 아래(+100%)에서 올라와 이어짐
+      next.style.transition = 'none';
+      next.src = targetItem.thumb;
+      next.style.transform = `translateY(${dirSign > 0 ? '-100%' : '100%'})`;
 
-      img.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
-      img.style.opacity = '0';
-      img.style.transform = `translateY(${dirSign > 0 ? '-14px' : '14px'})`;
+      curr.style.transition = 'none';
+      curr.style.transform = 'translateY(0%)';
 
-      await new Promise(r => setTimeout(r, 260));
+      void next.offsetHeight;
 
-      this.index = nextIdx;
-      img.style.transition = 'none';
-      img.src = targetItem.thumb;
-      img.style.transform = `translateY(${dirSign > 0 ? '14px' : '-14px'})`;
+      curr.style.transition = ease;
+      next.style.transition = ease;
+      curr.style.transform = `translateY(${dirSign > 0 ? '100%' : '-100%'})`;
+      next.style.transform = 'translateY(0%)';
 
       const cap = document.getElementById('hero-gallery-caption');
       const sub = document.getElementById('hero-gallery-sub');
       const cnt = document.getElementById('hero-gallery-counter');
       if (cap) cap.textContent = targetItem.title;
       if (sub) sub.textContent = targetItem.sub || '';
-      if (cnt) cnt.textContent = `${this.index + 1} / ${this.items.length}`;
+      if (cnt) cnt.textContent = `${nextIdx + 1} / ${this.items.length}`;
 
-      void img.offsetHeight;
-      img.style.transition = 'opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1), transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)';
-      img.style.opacity = '1';
-      img.style.transform = 'translateY(0)';
+      await new Promise(r => setTimeout(r, 740));
 
-      await new Promise(r => setTimeout(r, 550));
+      this.index = nextIdx;
+      this.activeSlot = this.activeSlot === 'a' ? 'b' : 'a';
     } finally {
       this.transitioning = false;
     }
@@ -239,20 +271,26 @@ const smoothVerticalSlider = {
   },
 
   renderImmediate() {
+    const a = document.getElementById('hero-gallery-img-a');
+    const b = document.getElementById('hero-gallery-img-b');
     const item = this.items[this.index] || DEFAULT_SLIDES[0];
-    const img = document.getElementById('hero-gallery-img');
+    this.activeSlot = 'a';
+    if (a) {
+      a.onerror = () => {
+        a.onerror = null;
+        a.src = DEFAULT_SLIDES[0].thumb;
+      };
+      a.style.transition = 'none';
+      a.src = item.thumb;
+      a.style.transform = 'translateY(0%)';
+    }
+    if (b) {
+      b.style.transition = 'none';
+      b.style.transform = 'translateY(100%)';
+    }
     const cap = document.getElementById('hero-gallery-caption');
     const sub = document.getElementById('hero-gallery-sub');
     const cnt = document.getElementById('hero-gallery-counter');
-    if (img) {
-      img.onerror = () => {
-        img.onerror = null;
-        img.src = DEFAULT_SLIDES[0].thumb;
-      };
-      img.src = item.thumb;
-      img.style.opacity = '1';
-      img.style.transform = 'translateY(0)';
-    }
     if (cap) cap.textContent = item.title;
     if (sub) sub.textContent = item.sub || '';
     if (cnt) cnt.textContent = `${this.index + 1} / ${this.items.length}`;
@@ -507,6 +545,99 @@ async function handleWorshipReserveSubmit(e) {
   else alert('오류: ' + ((res && res.error) || '권한 확인 필요'));
 }
 
+async function renderSheetHistory(sheetName, targetId) {
+  const box = document.getElementById(targetId);
+  if (!box) return;
+  if (!state.currentIdToken) {
+    box.innerHTML = `<div class="p-3 rounded-xl bg-gray-50 dark:bg-slate-800 text-gray-500">💡 로그인하면 실제 시트(${sheetName}) 내역이 표시됩니다.</div>`;
+    return;
+  }
+  const res = await callApi('querySheet', { sheetName });
+  if (!res || !res.ok) {
+    box.innerHTML = `<div class="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-300">${(res && res.error) || '조회 실패'}</div>`;
+    return;
+  }
+  const rows = (res.rows || []).slice().reverse().slice(0, 8);
+  if (!rows.length) {
+    box.innerHTML = `<div class="p-3 rounded-xl bg-gray-50 dark:bg-slate-800 text-gray-500">등록된 내역이 없습니다.</div>`;
+    return;
+  }
+
+  if (sheetName === 'Talent_Ledger') {
+    box.innerHTML = `<div class="font-bold text-navy dark:text-white">최근 달란트 내역</div>` + rows.map(r => `
+      <div class="p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-between gap-2">
+        <div class="min-w-0">
+          <div class="font-bold truncate">${r['활동구분'] || '활동'} · ${Number(r['신청달란트'] || 0)}T</div>
+          <div class="text-[11px] text-gray-500 truncate">${r['성명'] || ''} · ${r['증빙메모'] || ''}</div>
+        </div>
+        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-gold shrink-0">
+          ${r['승인여부'] || '승인대기'}
+        </span>
+      </div>`).join('');
+    return;
+  }
+
+  box.innerHTML = `<div class="font-bold text-navy dark:text-white">최근 중보기도 제목</div>` + rows.map(r => `
+    <div class="p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-1">
+      <div class="flex items-center justify-between text-[11px]">
+        <span class="font-bold text-navy dark:text-gold">${r['기도구분'] || '중보기도'} · ${r['성명'] || ''}</span>
+        <span class="text-gray-400">${r['공개범위'] || '전체'}</span>
+      </div>
+      <div class="text-xs text-gray-700 dark:text-slate-200 whitespace-pre-line">${r['기도제목'] || ''}</div>
+    </div>`).join('');
+}
+
+async function handleTalentSubmit(e) {
+  e.preventDefault();
+  if (!state.currentIdToken) {
+    showToast('✅ [시연] 달란트 신청이 접수되었습니다.');
+    closeServiceModal();
+    return;
+  }
+  const fd = Object.fromEntries(new FormData(e.target).entries());
+  const res = await callApi('insertRow', {
+    sheetName: 'Talent_Ledger',
+    record: {
+      '활동구분': String(fd['활동구분'] || '').trim(),
+      '신청달란트': Number(fd['신청달란트'] || 0),
+      '증빙메모': String(fd['증빙메모'] || '').trim(),
+      '승인여부': '승인대기'
+    }
+  });
+  if (res && res.ok) {
+    showToast('✅ 달란트 신청이 등록되었습니다.');
+    await renderSheetHistory('Talent_Ledger', 'talent-history-box');
+    e.target.reset();
+  } else {
+    alert('오류: ' + ((res && res.error) || '달란트 등록에 실패했습니다.'));
+  }
+}
+
+async function handlePrayerSubmit(e) {
+  e.preventDefault();
+  if (!state.currentIdToken) {
+    showToast('✅ [시연] 중보기도가 등록되었습니다.');
+    closeServiceModal();
+    return;
+  }
+  const fd = Object.fromEntries(new FormData(e.target).entries());
+  const res = await callApi('insertRow', {
+    sheetName: 'Prayer_Requests',
+    record: {
+      '기도구분': String(fd['기도구분'] || '중보기도').trim(),
+      '공개범위': String(fd['공개범위'] || '전체').trim(),
+      '기도제목': String(fd['기도제목'] || '').trim()
+    }
+  });
+  if (res && res.ok) {
+    showToast('✅ 중보기도 제목이 등록되었습니다.');
+    await renderSheetHistory('Prayer_Requests', 'prayer-history-box');
+    e.target.reset();
+  } else {
+    alert('오류: ' + ((res && res.error) || '중보기도 등록에 실패했습니다.'));
+  }
+}
+
 async function openServiceById(id) {
   const srv = SERVICES.find(s => s.id === id);
   if (!srv) return;
@@ -534,6 +665,78 @@ async function openServiceById(id) {
     modal.classList.remove('hidden');
     if (typeof mod.renderHtml === 'function') { body.innerHTML = await mod.renderHtml(); if (mod.bindEvents) mod.bindEvents(body); }
     else if (typeof mod.mount === 'function') { body.innerHTML = `<div id="mod-slot"></div>`; mod.container = '#mod-slot'; mod.mount(); }
+    return;
+  }
+
+  if (srv.sheet === 'Talent_Ledger') {
+    body.innerHTML = `
+      <form onsubmit="handleTalentSubmit(event)" class="space-y-3 text-xs bg-skyBg/60 dark:bg-slate-800/70 p-3.5 rounded-xl border border-gray-200 dark:border-slate-700">
+        <div class="font-bold text-navy dark:text-gold">🪙 달란트 적립 신청</div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-bold mb-1">활동구분</label>
+            <input name="활동구분" required placeholder="예: 예배섬김, 소그룹모임"
+              class="w-full px-3 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700" />
+          </div>
+          <div>
+            <label class="block font-bold mb-1">신청달란트</label>
+            <input type="number" name="신청달란트" min="1" max="500" required value="10"
+              class="w-full px-3 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700" />
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold mb-1">증빙메모</label>
+          <input name="증빙메모" required placeholder="활동 일자 및 세부 내용"
+            class="w-full px-3 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700" />
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-navy dark:bg-gold text-white dark:text-navyDark font-bold">
+          달란트 신청 등록
+        </button>
+      </form>
+      <div id="talent-history-box" class="space-y-2 text-xs">
+        <div class="text-gray-500">⏳ 달란트 내역을 불러오는 중...</div>
+      </div>`;
+    modal.classList.remove('hidden');
+    await renderSheetHistory('Talent_Ledger', 'talent-history-box');
+    return;
+  }
+
+  if (srv.sheet === 'Prayer_Requests') {
+    body.innerHTML = `
+      <form onsubmit="handlePrayerSubmit(event)" class="space-y-3 text-xs bg-skyBg/60 dark:bg-slate-800/70 p-3.5 rounded-xl border border-gray-200 dark:border-slate-700">
+        <div class="font-bold text-navy dark:text-gold">🙏 중보기도 제목 신청</div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-bold mb-1">기도구분</label>
+            <select name="기도구분" class="w-full px-3 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700">
+              <option value="건강·치유">건강·치유</option>
+              <option value="가정·자녀">가정·자녀</option>
+              <option value="신앙·사명">신앙·사명</option>
+              <option value="교회·선교">교회·선교</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold mb-1">공개범위</label>
+            <select name="공개범위" class="w-full px-3 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700">
+              <option value="전체">전체</option>
+              <option value="비공개">비공개</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold mb-1">기도제목</label>
+          <textarea name="기도제목" rows="3" required placeholder="함께 나누고 기도할 제목을 적어주세요."
+            class="w-full px-3 py-2 rounded-xl border dark:bg-slate-900 dark:border-slate-700"></textarea>
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-navy dark:bg-gold text-white dark:text-navyDark font-bold">
+          중보기도 신청하기
+        </button>
+      </form>
+      <div id="prayer-history-box" class="space-y-2 text-xs">
+        <div class="text-gray-500">⏳ 기도요청 목록을 불러오는 중...</div>
+      </div>`;
+    modal.classList.remove('hidden');
+    await renderSheetHistory('Prayer_Requests', 'prayer-history-box');
     return;
   }
 
@@ -674,8 +877,19 @@ async function handleAttendanceSubmit(e) {
 
 async function loadHub() {
   const dot = document.getElementById('api-status-dot');
+  const cached = readCachedHub();
+
+  if (cached) {
+    state.hubCache = cached;
+    smoothVerticalSlider.setItems(cached.galleries);
+  }
+
   const r = await fetchPublicHubData();
   state.hubCache = r.data;
+  if (r.status === 'live') {
+    writeCachedHub(r.data);
+  }
+
   if (dot) {
     dot.innerHTML = r.status === 'live' ? '🟢 실시간 연동됨' : '🟡 기본 허브 모드';
     dot.className = r.status === 'live'
@@ -718,6 +932,8 @@ Object.assign(window, {
   toggleAlbumBgm,
   openWorshipReserveForm,
   handleWorshipReserveSubmit,
+  handleTalentSubmit,
+  handlePrayerSubmit,
   openServiceById,
   closeServiceModal,
   openIdPasswordModal,

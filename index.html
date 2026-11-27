@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="다산교회" />
   <title>다산교회 | dsc.or.kr</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a252f'/%3E%3Ctext x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' fill='%23d4af37' font-size='24' font-family='sans-serif' font-weight='bold'%3E%EB%8B%A4%EC%82%B0%3C/text%3E%3C/svg%3E" />
   <link rel="manifest" href="./manifest.json" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -40,9 +41,8 @@
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-    .smooth-fade {
-      transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
-      will-change: transform, opacity;
+    .gallery-layer {
+      will-change: transform;
     }
   </style>
 </head>
@@ -104,7 +104,7 @@
   <!-- 3. 메인 뷰포트 -->
   <main class="flex-1 max-w-3xl w-full mx-auto px-3.5 pt-2.5 pb-20 flex flex-col gap-2.5">
 
-    <!-- [전체메뉴] 상단: 나의 대시보드 / 하단: 물 흐르는 상하 슬라이드 앨범 + BGM -->
+    <!-- [전체메뉴] 상단: 나의 대시보드 / 하단: 연속 상하 슬라이드 앨범 + BGM -->
     <section id="tab-view-all" class="flex-1 flex flex-col gap-2.5">
 
       <!-- 다음 예배 한 줄 알림 -->
@@ -120,15 +120,18 @@
         </a>
       </div>
 
-      <!-- 1) 나의 대시보드 (앨범 위로 이동) -->
+      <!-- 1) 나의 대시보드 -->
       <div id="personalized-card" class="shrink-0"></div>
 
-      <!-- 2) 활동사진 앨범 (물 흐르는 상하 슬라이드 + BGM 제어) -->
+      <!-- 2) 활동사진 앨범 (한 장이 흘러가며 다른 쪽에서 다음 사진이 이어져 등장) -->
       <div class="flex-1 min-h-[300px] sm:min-h-[360px] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-gray-200/80 dark:border-slate-800 flex flex-col">
         <div id="gallery-slider-stage" class="relative flex-1 min-h-[240px] bg-navyDark overflow-hidden select-none">
-          <img id="hero-gallery-img" src="" alt="다산교회 활동사진"
-            class="w-full h-full object-cover smooth-fade" />
-          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent p-3.5 pt-10 flex items-end justify-between gap-2 pointer-events-none">
+          <img id="hero-gallery-img-a" src="" alt="다산교회 활동사진"
+            class="gallery-layer w-full h-full object-cover absolute inset-0" />
+          <img id="hero-gallery-img-b" src="" alt=""
+            class="gallery-layer w-full h-full object-cover absolute inset-0" style="transform: translateY(100%);" />
+
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent p-3.5 pt-10 flex items-end justify-between gap-2 pointer-events-none z-10">
             <div class="min-w-0">
               <div id="hero-gallery-caption" class="text-white font-bold text-sm truncate">다산교회 활동사진</div>
               <div id="hero-gallery-sub" class="text-white/80 text-[11px] truncate">함께 예배하고 섬기는 다산교회 공동체</div>
@@ -137,12 +140,12 @@
           </div>
 
           <!-- 상 / 하 수동 이동 버튼 -->
-          <div class="absolute right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-10">
-            <button type="button" onclick="stepGallerySlide(-1)" aria-label="위로 부드럽게 이동"
+          <div class="absolute right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-20">
+            <button type="button" onclick="stepGallerySlide(-1)" aria-label="위로 이어지게 이동"
               class="w-8 h-8 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center text-xs transition">
               ▲
             </button>
-            <button type="button" onclick="stepGallerySlide(1)" aria-label="아래로 부드럽게 이동"
+            <button type="button" onclick="stepGallerySlide(1)" aria-label="아래로 이어지게 이동"
               class="w-8 h-8 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center text-xs transition">
               ▼
             </button>
