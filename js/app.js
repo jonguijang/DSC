@@ -1053,7 +1053,7 @@ function init() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
 
-function openDscAccountGuideModal() {
+window.openDscAccountGuideModal = function () {
   const existing = document.getElementById('dsc-account-guide-modal');
   if (existing) existing.remove();
 
@@ -1135,9 +1135,9 @@ function openDscAccountGuideModal() {
   });
 
   document.body.appendChild(modal);
-}
+};
 
-function closeDscAccountGuideModal() {
+window.closeDscAccountGuideModal = function () {
   const modal = document.getElementById('dsc-account-guide-modal');
   if (modal) modal.remove();
-}
+};
