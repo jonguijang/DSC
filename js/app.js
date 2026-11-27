@@ -1111,7 +1111,7 @@ window.openDscAccountGuideModal = function () {
 
         <div style="display:flex;gap:8px;">
           <a
-            href="https://accounts.google.com/AddSession?Email=dsc.or.kr"
+            href="https://accounts.google.com/AddSession?Email=개인계정@dsc.or.kr"
             target="_blank"
             rel="noopener noreferrer"
             style="flex:1;text-align:center;text-decoration:none;background:#1d4ed8;color:#fff;font-weight:700;padding:11px 14px;border-radius:10px;font-size:13.5px;"
