@@ -470,6 +470,8 @@ function renderPersonalizedCard() {
 
 // 기능분류별 전체 메뉴 렌더링
 function renderAllBusinessMenu() {
+  const tabAll = document.getElementById('tab-view-all');
+  if (tabAll) tabAll.classList.remove('hidden');
   const grid = document.getElementById('all-business-menu-grid');
   const badge = document.getElementById('all-menu-role-badge');
   const roleCode = getCurrentRbacCode();
