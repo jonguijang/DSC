@@ -3,6 +3,7 @@ import { CONFIG, ROLE_LEVEL } from './config.js';
 export const state = {
   currentRole: '외부인',
   currentCategory: 'ALL',
+  currentTab: 'home',
   currentIdToken: '',
   currentUserProfile: null,
   hubCache: {
@@ -10,6 +11,7 @@ export const state = {
     galleries: [],
     events: [],
     duties: [],
+    portalMenus: [],
     smallGroups: CONFIG.DEFAULT_SMALL_GROUPS.slice()
   },
   favoriteIds: [],
@@ -20,9 +22,8 @@ export function getViewMode() {
   return window.innerWidth < 768 ? 'MOBILE_COMPACT' : 'PC_DETAIL';
 }
 
-// 외부인(비로그인) 또는 서버 미인증 상태에서는 성도 실명을 절대 노출하지 않음
 export function sanitizeMemberName(rawName) {
-  const hasVerifiedSession = Boolean(state.currentIdToken) && ROLE_LEVEL[state.currentRole] >= 2;
+  const hasVerifiedSession = Boolean(state.currentIdToken) && (ROLE_LEVEL[state.currentRole] || 1) >= 2;
   if (!hasVerifiedSession) {
     return '로그인 후 열람 가능';
   }
@@ -32,15 +33,12 @@ export function sanitizeMemberName(rawName) {
 export function applyTheme(theme) {
   const html = document.documentElement;
   const icon = document.getElementById('theme-icon');
-  const text = document.getElementById('theme-text');
   if (theme === 'dark') {
     html.classList.add('dark');
     if (icon) icon.textContent = '☀️';
-    if (text) text.textContent = '밝음';
   } else {
     html.classList.remove('dark');
     if (icon) icon.textContent = '🌙';
-    if (text) text.textContent = '어두움';
   }
   try { localStorage.setItem('dsc_theme', theme); } catch (e) {}
 }
@@ -59,9 +57,9 @@ export function toggleTheme() {
 export function loadFavorites() {
   try {
     const raw = localStorage.getItem('dsc_quick_favorites');
-    state.favoriteIds = raw ? JSON.parse(raw) : ['헌금내역 조회', '달란트 관리', '예배주보 (Drive)'];
+    state.favoriteIds = raw ? JSON.parse(raw) : ['예배참석예약', '출석현황 (화/금/안)', '달란트 관리', '헌금내역 조회'];
   } catch (e) {
-    state.favoriteIds = ['헌금내역 조회', '달란트 관리', '예배주보 (Drive)'];
+    state.favoriteIds = ['예배참석예약', '출석현황 (화/금/안)', '달란트 관리', '헌금내역 조회'];
   }
 }
 
@@ -84,22 +82,12 @@ export function getUserDefaultGroup(groupNames) {
   const list = groupNames && groupNames.length ? groupNames : getSmallGroupNames();
   const profile = state.currentUserProfile;
   const rawUserGroup = String(
-    (profile && (
-      profile.groupName ||
-      profile.groupNo ||
-      profile['소속반'] ||
-      profile['소속반(1~9반)'] ||
-      ''
-    )) || ''
+    (profile && (profile.groupName || profile.groupNo || profile['소속반'] || profile['소속반(1~9반)'] || '')) || ''
   ).trim();
-
   if (rawUserGroup) {
     if (list.includes(rawUserGroup)) return rawUserGroup;
     const numMatch = /^([1-9])반$/.exec(rawUserGroup);
-    if (numMatch) {
-      const idx = Number(numMatch[1]) - 1;
-      if (list[idx]) return list[idx];
-    }
+    if (numMatch && list[Number(numMatch[1]) - 1]) return list[Number(numMatch[1]) - 1];
   }
   return list[0] || '겸손반';
 }

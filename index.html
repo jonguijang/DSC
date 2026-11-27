@@ -2,11 +2,15 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  
-  <title>제칠일안식일예수재림교 다산교회 | dsc.or.kr (v3.0)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a252f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="다산교회" />
+  <title>다산교회 | dsc.or.kr</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a252f'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='28' fill='%23d4af37' font-family='sans-serif' font-weight='bold'%3E다산%3C/text%3E%3C/svg%3E" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23102a43'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='34' fill='%23f4b400' font-family='sans-serif' font-weight='bold'%3E%EB%8B%A4%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script>
@@ -19,362 +23,223 @@
             navyDark: '#1a252f',
             gold: '#d4af37',
             goldLight: '#f6ecc9',
-            skyBg: '#eef2f5',
+            skyBg: '#f3f6f9'
           },
           fontFamily: {
-            sans: ['"Noto Sans KR"', 'sans-serif'],
+            sans: ['"Noto Sans KR"', 'sans-serif']
           }
         }
       }
-    }
+    };
   </script>
   <style>
-    body { font-family: 'Noto Sans KR', sans-serif; transition: background-color 0.2s ease, color 0.2s ease; }
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
   </style>
 </head>
 <body class="min-h-screen flex flex-col bg-skyBg text-slate-800 dark:bg-slate-950 dark:text-slate-100">
 
-  <!-- 1. 상단 예배 라이브 & 실시간 카운트다운 바 -->
-  <div class="bg-navyDark dark:bg-black text-white text-xs sm:text-sm py-2 px-4 border-b border-white/10">
-    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-        <a href="https://www.youtube.com/@sda5239" target="_blank" class="inline-flex items-center gap-1.5 font-semibold text-goldLight hover:text-gold transition">
-          <span>📺 온라인예배 (@sda5239)</span>
-        </a>
-        <span class="text-white/30">|</span>
-        <span id="next-worship-label" class="text-gray-200">다음 예배까지</span>
-        <span id="worship-countdown" class="font-mono font-bold text-gold bg-white/10 px-2 py-0.5 rounded">00:00:00</span>
-        <span id="api-status-dot" class="ml-1 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200">
+  <!-- 1. 초슬림 상단 유틸 바: 실시간 연동됨 + 아이디신청/비번초기화 + 바탕화면 바로가기 -->
+  <div class="bg-navyDark dark:bg-black text-white text-[11px] py-1.5 px-3 border-b border-white/10">
+    <div class="max-w-3xl mx-auto flex items-center justify-between gap-1.5">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span id="api-status-dot" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 whitespace-nowrap">
           🟡 연동 준비중
         </span>
+        <button type="button" onclick="openIdPasswordModal()"
+          class="px-2 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-goldLight font-semibold transition whitespace-nowrap">
+          🔑 아이디 신청/비번초기화
+        </button>
       </div>
-
-      <div class="flex items-center gap-2">
-        <span id="view-mode-badge" class="hidden md:inline-block text-[11px] px-2 py-0.5 rounded bg-white/10 text-goldLight font-mono">
-          VIEW: PC_DETAIL
-        </span>
-        <label for="role-preview" class="text-gray-300 hidden sm:inline">권한 미리보기:</label>
-        <select id="role-preview" onchange="changePreviewRole(this.value)" class="bg-navy dark:bg-slate-800 text-white border border-gray-600 rounded px-2 py-0.5 text-xs focus:outline-none focus:border-gold">
-          <option value="외부인">1. 외부인 (비로그인)</option>
-          <option value="다산교회">2. 다산교회 (성도)</option>
-          <option value="직원">3. 직원 (제직·반장)</option>
-          <option value="관리자">4. 관리자 (당회·행정)</option>
-        </select>
-      </div>
+      <button type="button" id="pwa-install-btn" onclick="triggerInstallShortcut()"
+        class="px-2 py-0.5 rounded-full bg-gold/20 hover:bg-gold/30 text-gold font-semibold transition whitespace-nowrap shrink-0">
+        📲 바로가기
+      </button>
     </div>
   </div>
 
-  <!-- 2. 스마트 메인 헤더 -->
-  <header class="bg-white dark:bg-slate-900 shadow-sm sticky top-0 z-40 border-b border-gray-200 dark:border-slate-800 transition-colors">
-    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-2">
-      <a href="#" class="flex items-center gap-2.5 shrink-0">
-        <div class="w-9 h-9 rounded-lg bg-navy dark:bg-slate-800 border border-transparent dark:border-gold/40 flex items-center justify-center text-gold font-bold text-lg shadow-sm">
+  <!-- 2. 초간결 메인 헤더: [다산] 다산교회 + 10분 세션 타이머/연장 + 테마 + 로그인 -->
+  <header class="bg-white/95 dark:bg-slate-900/95 backdrop-blur sticky top-0 z-40 border-b border-gray-200 dark:border-slate-800">
+    <div class="max-w-3xl mx-auto px-3.5 h-14 flex items-center justify-between gap-2">
+      <a href="#" onclick="switchBottomTab('home'); return false;" class="flex items-center gap-2 shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-navy dark:bg-slate-800 border border-transparent dark:border-gold/40 flex items-center justify-center text-gold font-bold text-xs shadow-sm">
           다산
         </div>
-        <div>
-          <div class="text-[11px] text-gray-500 dark:text-slate-400 leading-none">제칠일안식일예수재림교</div>
-          <div class="text-base sm:text-lg font-bold text-navy dark:text-white tracking-tight">
-            다산교회 <span class="text-xs font-normal text-gray-400 hidden sm:inline">dsc.or.kr · v3.0</span>
-          </div>
-        </div>
+        <span class="text-lg font-bold text-navy dark:text-white tracking-tight">다산교회</span>
       </a>
 
-      <!-- 데스크톱 5대 핵심 내비게이션 -->
-      <nav class="hidden lg:flex items-center gap-6 text-sm font-semibold text-gray-700 dark:text-slate-200">
-        <a href="#guide-section" class="hover:text-navy dark:hover:text-gold transition">교회안내·선교</a>
-        <a href="#dashboard-widgets" class="hover:text-navy dark:hover:text-gold transition">말씀·담당표·일정</a>
-        <a href="#all-services" onclick="filterServices('신앙·편의')" class="hover:text-navy dark:hover:text-gold transition">신앙·소그룹</a>
-        <a href="#all-services" onclick="filterServices('예배·봉사')" class="hover:text-navy dark:hover:text-gold transition">예배·봉사</a>
-        <a href="#all-services" onclick="filterServices('행정·재정')" class="hover:text-navy dark:hover:text-gold transition">교회행정·Wiki</a>
-      </nav>
+      <div class="flex items-center gap-1.5">
+        <!-- 로그인 시 노출: 10분 세션 타이머 + 연장하기 -->
+        <div id="session-timer-box" class="hidden items-center gap-1 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-lg px-2 py-1 text-[11px]">
+          <span class="text-amber-700 dark:text-amber-300 font-mono font-bold">⏱ <span id="session-countdown">10:00</span></span>
+          <button type="button" onclick="handleExtendSession()"
+            class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-1.5 py-0.5 rounded text-[10px] transition">
+            연장
+          </button>
+        </div>
 
-      <!-- 우측 컨트롤: 밝음/어두움 토글 + 사용자 배지 + Google 로그인 -->
-      <div class="flex items-center gap-1.5 sm:gap-2">
-        <button id="theme-toggle-btn" onclick="toggleTheme()" aria-label="화면 테마 전환"
-          class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-700 text-xs font-semibold transition">
-          <span id="theme-icon">🌙</span>
-          <span id="theme-text">어두움</span>
+        <!-- 시연용 5단계 권한 빠른 전환 버튼 (목사님/직원 시연 편의용) -->
+        <button type="button" onclick="openRoleDemoModal()" title="5단계 권한 시연"
+          class="w-8 h-8 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-slate-700 transition">
+          🎭
         </button>
 
-        <span id="user-badge" class="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300">
-          1. 외부인
-        </span>
-        <button id="auth-btn" onclick="handleAuthClick()" class="bg-navy hover:bg-navyDark dark:bg-gold dark:hover:bg-yellow-500 text-white dark:text-navyDark text-xs sm:text-sm font-semibold px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg transition shadow-sm">
-          Google 로그인
+        <!-- 밝음/어두움 토글 -->
+        <button type="button" id="theme-toggle-btn" onclick="toggleTheme()" aria-label="화면 테마 전환"
+          class="w-8 h-8 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-slate-700 transition">
+          <span id="theme-icon">🌙</span>
+        </button>
+
+        <!-- Google 로그인 / 로그아웃 -->
+        <button type="button" id="auth-btn" onclick="handleAuthClick()"
+          class="bg-navy hover:bg-navyDark dark:bg-gold dark:hover:bg-yellow-500 text-white dark:text-navyDark text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm whitespace-nowrap">
+          로그인
         </button>
       </div>
     </div>
   </header>
 
-  <!-- 3. 히어로 배너 영역 -->
-  <section class="bg-gradient-to-br from-navy via-navy to-navyDark dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 text-white py-8 sm:py-12 px-4 border-b border-transparent dark:border-slate-800">
-    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center">
-      <div class="lg:col-span-7 space-y-3 sm:space-y-4">
-        <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-3 py-1 text-xs text-goldLight">
-          <span>담임목사 임영운</span>
-          <span>•</span>
-          <span>경기도 남양주시 진건읍 고재로 197</span>
-        </div>
-        <h1 class="text-2xl sm:text-4xl font-bold leading-tight tracking-tight">
-          기도와 섬김으로 세워가는<br/>
-          <span class="text-gold">다산교회 통합 신앙·행정 포털</span>
-        </h1>
-        <p class="text-xs sm:text-base text-gray-200 leading-relaxed max-w-2xl">
-          안식일예배(토 10:00), 화요예배(화 19:30), 금요예배(금 19:30)와 함께 예배주보, 활동사진, 소그룹(9개반), 출석·달란트, 현장 체크리스트 및 행정·재정 서비스를 Google Workspace로 통합 제공합니다.
-        </p>
+  <!-- 3. 메인 콘텐츠 뷰포트 (탭 전환형 앱 구조) -->
+  <main class="flex-1 max-w-3xl w-full mx-auto px-3.5 py-4 space-y-4">
 
-        <!-- 오늘의 말씀(갓모닝 성경구절) & 카카오톡 공유 -->
-        <div class="bg-white/10 border border-white/15 rounded-2xl p-3.5 sm:p-4 space-y-2">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-xs font-bold text-gold">📖 오늘의 말씀 · 갓모닝 새벽묵상</span>
-            <button onclick="shareKakaoDevotion()" class="text-[11px] font-bold bg-gold text-navyDark px-2.5 py-1 rounded-lg hover:opacity-90 transition">
-              💬 묵상 복사·공유
+    <!-- [TAB 1] 홈 화면: 기본(활동사진) + 확장(로그인 성도 이상: 나의 신앙 대시보드) -->
+    <section id="tab-view-home" class="space-y-4">
+
+      <!-- 다음 예배 1줄 미니 알림 바 -->
+      <div class="flex items-center justify-between bg-white dark:bg-slate-900 rounded-xl px-3.5 py-2 shadow-sm border border-gray-200/80 dark:border-slate-800 text-xs">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="text-gold">🔔</span>
+          <span id="next-worship-label" class="font-semibold text-gray-700 dark:text-slate-200 truncate">다음 예배까지</span>
+          <span id="worship-countdown" class="font-mono font-bold text-navy dark:text-gold">00:00:00</span>
+        </div>
+        <a href="https://www.youtube.com/@sda5239" target="_blank"
+          class="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline shrink-0">
+          ▶ 온라인예배
+        </a>
+      </div>
+
+      <!-- 기본 영역 (권한: 외부인 이상 전체 노출) — 활동사진 정방향/역방향 심플 슬라이더 -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-gray-200/80 dark:border-slate-800">
+        <div id="gallery-slider-stage" class="relative aspect-[16/10] sm:aspect-[16/9] bg-navyDark overflow-hidden select-none">
+          <img id="hero-gallery-img" src="" alt="다산교회 활동사진"
+            class="w-full h-full object-cover transition-opacity duration-300" />
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent p-3.5 pt-10 flex items-end justify-between gap-2">
+            <div class="min-w-0">
+              <div id="hero-gallery-caption" class="text-white font-bold text-sm truncate">다산교회 활동사진</div>
+              <div id="hero-gallery-sub" class="text-white/80 text-[11px] truncate">함께 예배하고 섬기는 다산교회 공동체</div>
+            </div>
+            <span id="hero-gallery-counter" class="text-[11px] font-mono bg-black/50 text-white px-2 py-0.5 rounded-full shrink-0">1 / 3</span>
+          </div>
+
+          <!-- 좌/우 수동 이동 버튼 -->
+          <button type="button" onclick="stepGallerySlide(-1)" aria-label="이전 사진"
+            class="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center text-sm transition">
+            ◀
+          </button>
+          <button type="button" onclick="stepGallerySlide(1)" aria-label="다음 사진"
+            class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center text-sm transition">
+            ▶
+          </button>
+        </div>
+
+        <!-- 심플 정방향 / 정지 / 역방향 슬라이드 컨트롤 바 -->
+        <div class="px-3.5 py-2.5 flex items-center justify-between gap-2 bg-gray-50/80 dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800">
+          <div class="inline-flex items-center gap-1 bg-white dark:bg-slate-800 p-0.5 rounded-lg border border-gray-200 dark:border-slate-700">
+            <button type="button" id="btn-dir-rev" onclick="setGalleryDirection(-1)"
+              class="px-2.5 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition">
+              ◀ 역방향
+            </button>
+            <button type="button" id="btn-dir-pause" onclick="setGalleryDirection(0)"
+              class="px-2 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition">
+              ⏸
+            </button>
+            <button type="button" id="btn-dir-fwd" onclick="setGalleryDirection(1)"
+              class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-navy text-white dark:bg-gold dark:text-navyDark transition">
+              정방향 ▶
             </button>
           </div>
-          <p id="daily-verse-text" class="text-xs sm:text-sm text-white leading-relaxed">
-            "너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요" (마태복음 5:14)
-          </p>
-        </div>
-      </div>
-
-      <!-- 개인화 카드 슬롯 (비로그인: 오시는 길/새가족 안내, 로그인: 나의 신앙 대시보드) -->
-      <div class="lg:col-span-5">
-        <div id="personalized-card" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-2xl p-5 shadow-lg border border-gray-100 dark:border-slate-800 min-h-[210px] flex flex-col justify-between">
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 메인 콘텐츠 컨테이너 -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 sm:py-8 space-y-8 sm:space-y-10">
-
-    <!-- 4. 개인화 Quick 즐겨찾기(★) & 전자 신청서비스 링크 허브 (v3.0) -->
-    <section id="quick-hub-section" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      <div id="quick-favorites-slot" class="lg:col-span-6 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800"></div>
-      <div id="quick-links-slot" class="lg:col-span-6 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800"></div>
-    </section>
-
-    <!-- 5. 대시보드 위젯: 주간 담당표(실명 원천차단 검증) + 교회 캘린더 + 활동사진 갤러리 -->
-    <section id="dashboard-widgets" class="space-y-6">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- 주간 담당표 모듈 슬롯 -->
-        <div id="weekly-duty-slot" class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800"></div>
-
-        <!-- 교회 캘린더 & 예배주보 빠른 열람 -->
-        <div class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800 flex flex-col justify-between space-y-4">
-          <div>
-            <div class="flex items-center justify-between mb-3">
-              <h2 class="font-bold text-base text-navy dark:text-white">📅 다산교회 주요 일정</h2>
-              <button onclick="openBulletinModal()" class="text-xs font-bold text-navy dark:text-gold bg-skyBg dark:bg-slate-800 px-2.5 py-1 rounded-lg hover:opacity-90 transition">
-                📄 금주 주보 열람
-              </button>
-            </div>
-            <ul id="calendar-event-list" class="space-y-2.5 text-xs sm:text-sm">
-              <li class="flex items-start justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
-                <div>
-                  <span class="font-bold text-navy dark:text-slate-100">안식일학교 및 대예배</span>
-                  <p class="text-xs text-gray-500 dark:text-slate-400">다산교회 본당 · 매주 토요일</p>
-                </div>
-                <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">토 09:30 / 10:00</span>
-              </li>
-              <li class="flex items-start justify-between pb-2 border-b border-gray-100 dark:border-slate-800">
-                <div>
-                  <span class="font-bold text-navy dark:text-slate-100">화요기도·말씀예배</span>
-                  <p class="text-xs text-gray-500 dark:text-slate-400">다산교회 본당 · 매주 화요일</p>
-                </div>
-                <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">화 19:30</span>
-              </li>
-              <li class="flex items-start justify-between last:border-none">
-                <div>
-                  <span class="font-bold text-navy dark:text-slate-100">금요저녁예배</span>
-                  <p class="text-xs text-gray-500 dark:text-slate-400">다산교회 본당 · 매주 금요일</p>
-                </div>
-                <span class="text-xs font-semibold text-gray-700 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0">금 19:30</span>
-              </li>
-            </ul>
-          </div>
-          <div class="pt-3 border-t border-gray-100 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span class="text-gray-500 dark:text-slate-400">온라인예배 &amp; 갓모닝 묵상</span>
-            <a href="https://www.youtube.com/@sda5239" target="_blank" class="font-bold text-navy dark:text-gold hover:underline">
-              유튜브 채널(@sda5239) →
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <!-- 활동사진 갤러리 스트립 -->
-      <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-slate-800">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-bold text-base text-navy dark:text-white">📸 최근 활동사진 앨범</h2>
-          <a href="https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud" target="_blank" class="text-xs font-semibold text-navy dark:text-gold hover:underline">
-            전체 갤러리 폴더 →
+          <a href="https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud" target="_blank"
+            class="text-[11px] font-semibold text-navy dark:text-gold hover:underline">
+            전체 앨범 →
           </a>
         </div>
-        <div id="gallery-strip-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="col-span-full text-center py-6 text-xs text-gray-500 dark:text-slate-400">
-            공유 드라이브 [02_활동사진_갤러리]에 행사별 폴더(예: 2026_안식일학교)를 생성하면 자동으로 앨범이 표시됩니다.
-          </div>
-        </div>
       </div>
+
+      <!-- 확장 영역: 비로그인(간결한 로그인 안내) vs 성도(Lv.2) 이상(나의 신앙 대시보드) -->
+      <div id="personalized-card"></div>
+
     </section>
 
-    <!-- 6. 대외 안내관 탭 (7대 헌금 · 패스파인더 · 어드벤처러) -->
-    <section id="guide-section" class="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-200 dark:border-slate-800">
-      <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 dark:border-slate-800 pb-4">
-        <button id="tab-offerings" onclick="switchGuideTab('offerings')" class="bg-navy dark:bg-gold text-white dark:text-navyDark border-navy dark:border-gold text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
-          💛 헌금설명 (7대 헌금)
-        </button>
-        <button id="tab-pathfinder" onclick="switchGuideTab('pathfinder')" class="bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
-          🏕️ 패스파인더 (Pathfinder)
-        </button>
-        <button id="tab-adventurer" onclick="switchGuideTab('adventurer')" class="bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg border transition whitespace-nowrap">
-          🌱 어드벤처러 (Adventurer)
-        </button>
-      </div>
+    <!-- [TAB 2] 예배·예약 뷰 -->
+    <section id="tab-view-worship" class="hidden space-y-3"></section>
 
-      <!-- 탭 1: 7대 헌금 안내 -->
-      <div id="panel-offerings" class="pt-6 space-y-4">
-        <div>
-          <span class="inline-block bg-goldLight dark:bg-amber-900/40 text-amber-900 dark:text-gold text-xs font-bold px-3 py-1 rounded-full">성경적 청지기 직분 안내</span>
-          <h3 class="text-xl font-bold text-gray-900 dark:text-white mt-2">다산교회 7대 헌금 안내</h3>
-          <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-300 mt-1">
-            하나님께서 주신 은혜와 복에 감사하며 선교·구제·교회 운영에 동참하는 7가지 헌금의 의미와 사용 목적입니다.
-          </p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs sm:text-sm">
-          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-            <div class="font-bold text-navy dark:text-gold mb-1">1. 십일조</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">소득의 10분의 1을 하나님께 드리는 성별된 헌금으로 교역자 사역과 복음 전파를 지원합니다.</p>
-          </div>
-          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-            <div class="font-bold text-navy dark:text-gold mb-1">2. 월정헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">매월 정성을 다해 드리는 헌금으로 교회 예배·교육·선교 사역의 기반이 됩니다.</p>
-          </div>
-          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-            <div class="font-bold text-navy dark:text-gold mb-1">3. 도르가헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">어려운 이웃과 취약계층을 돕는 구제·사랑 실천 사역에 사용됩니다.</p>
-          </div>
-          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-            <div class="font-bold text-navy dark:text-gold mb-1">4. 교회감사헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">일상과 신앙의 은혜에 감사하며 교회 공동체 사역을 섬기는 헌금입니다.</p>
-          </div>
-          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-            <div class="font-bold text-navy dark:text-gold mb-1">5. 투자헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">하나님과 동역하는 마음으로 작정·실천하는 선교 투자 헌금입니다.</p>
-          </div>
-          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-            <div class="font-bold text-navy dark:text-gold mb-1">6. 생일감사헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">생명의 은혜와 한 해를 인도하신 하나님께 감사하며 드리는 헌금입니다.</p>
-          </div>
-          <div class="p-3.5 rounded-xl bg-skyBg/70 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 sm:col-span-2">
-            <div class="font-bold text-navy dark:text-gold mb-1">7. 교회특별헌금</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">전도집회, 시설 정비, 특별 선교 및 지역사회 섬김 등 목적 사역을 위해 드리는 헌금입니다.</p>
-          </div>
-        </div>
-      </div>
+    <!-- [TAB 3] 전체업무 (클래스화된 업무 카테고리 맵) -->
+    <section id="tab-view-work" class="hidden space-y-3"></section>
 
-      <!-- 탭 2: 패스파인더 설명 -->
-      <div id="panel-pathfinder" class="pt-6 hidden">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-          <div class="md:col-span-2 space-y-3">
-            <span class="inline-block bg-navy text-white text-xs font-bold px-3 py-1 rounded-full">청소년 신앙·봉사·탐험 클럽 (초5 ~ 고등)</span>
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white">다산 패스파인더 (Pathfinder Club)</h3>
-            <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
-              패스파인더는 청소년들이 예수님을 구주로 영접하고, 자연 탐험과 기능장 수련, 지역사회 봉사 활동을 통해 균형 잡힌 리더로 성장하도록 돕는 청소년 클럽입니다.
-            </p>
-            <ul class="text-xs sm:text-sm text-gray-700 dark:text-slate-300 space-y-1.5 pt-2">
-              <li>• <strong>핵심 활동:</strong> 성경 탐구, 야외 캠핑·하이킹, 기능장(Honor) 배지 취득, 봉사 캠페인</li>
-              <li>• <strong>공동체 성장:</strong> 협동심과 책임감을 기르며 또래 및 지도자와 함께하는 신앙 여정</li>
-            </ul>
-          </div>
-          <div class="bg-skyBg dark:bg-slate-800 rounded-xl p-5 border border-gray-200 dark:border-slate-700 space-y-3">
-            <div class="font-bold text-navy dark:text-gold text-sm">패스파인더 활동 갤러리</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">청소년 클럽 모임 및 탐험·봉사 사진을 공유 드라이브 갤러리에서 확인하세요.</p>
-            <a href="https://drive.google.com/drive/folders/1m99CZXmlIA1SV2rRrxCWoTaLoXA1P6ud" target="_blank" class="block text-center bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-semibold py-2.5 rounded-lg hover:opacity-90 transition">
-              📸 활동사진 갤러리 바로가기
-            </a>
-          </div>
-        </div>
-      </div>
+    <!-- [TAB 4] 말씀·주보·일정 뷰 -->
+    <section id="tab-view-bulletin" class="hidden space-y-3"></section>
 
-      <!-- 탭 3: 어드벤처러 설명 -->
-      <div id="panel-adventurer" class="pt-6 hidden">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-          <div class="md:col-span-2 space-y-3">
-            <span class="inline-block bg-gold text-navyDark text-xs font-bold px-3 py-1 rounded-full">어린이·가족 신앙 프로그램 (유치부 ~ 초4)</span>
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white">다산 어드벤처러 (Adventurer Club)</h3>
-            <p class="text-xs sm:text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
-              어드벤처러는 어린이들이 부모님과 함께 예수님을 닮아가는 기쁨을 배우는 체험형 신앙·인성 클럽입니다. 가정과 교회가 협력하여 아이들의 눈높이에 맞춘 성경 이야기, 창의 만들기, 가족 캠프 활동을 진행합니다.
-            </p>
-            <ul class="text-xs sm:text-sm text-gray-700 dark:text-slate-300 space-y-1.5 pt-2">
-              <li>• <strong>4대 성장 영역:</strong> 나의 하나님(영성), 나 자신(자존감), 나의 가족(사랑), 나의 세상(나눔)</li>
-              <li>• <strong>가족 참여형:</strong> 부모님과 함께하는 주말 체험 학습 및 어드벤처러 별장 수여식</li>
-            </ul>
-          </div>
-          <div class="bg-skyBg dark:bg-slate-800 rounded-xl p-5 border border-gray-200 dark:border-slate-700 space-y-3">
-            <div class="font-bold text-navy dark:text-gold text-sm">어린이부·어드벤처러 안내</div>
-            <p class="text-xs text-gray-600 dark:text-slate-300">안식일학교 어린이부 예배 후 정기 프로그램이 운영됩니다.</p>
-            <a href="#dashboard-widgets" class="block text-center bg-navy dark:bg-gold text-white dark:text-navyDark text-xs font-semibold py-2.5 rounded-lg hover:opacity-90 transition">
-              📅 안식일학교 일정 확인하기
-            </a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 7. 30대 통합 서비스 전체 메뉴 맵 -->
-    <section id="all-services" class="space-y-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 class="text-lg sm:text-xl font-bold text-navy dark:text-white">🧩 30대 통합 신앙·봉사·행정 서비스</h2>
-          <p class="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-            권한 등급에 따라 이용 가능한 메뉴가 표시되며, ★ 버튼으로 개인 Quick 즐겨찾기에 추가할 수 있습니다.
-          </p>
-        </div>
-        <div class="flex flex-wrap gap-1.5" id="category-filter-bar">
-          <button onclick="filterServices('ALL')" data-cat="ALL" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-navy text-white dark:bg-gold dark:text-navyDark">전체 (30)</button>
-          <button onclick="filterServices('대외·선교')" data-cat="대외·선교" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">대외·선교 (9)</button>
-          <button onclick="filterServices('신앙·편의')" data-cat="신앙·편의" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">신앙·편의 (8)</button>
-          <button onclick="filterServices('예배·봉사')" data-cat="예배·봉사" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">예배·봉사 (5)</button>
-          <button onclick="filterServices('행정·재정')" data-cat="행정·재정" class="cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-700">행정·재정·Wiki (8)</button>
-        </div>
-      </div>
-
-      <div id="services-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4"></div>
-    </section>
+    <!-- [TAB 5] 내정보 & 설정 & 5단계 권한 시연 -->
+    <section id="tab-view-my" class="hidden space-y-3"></section>
 
   </main>
 
-  <!-- 8. 푸터 -->
-  <footer class="bg-navyDark dark:bg-black text-gray-300 text-xs py-6 px-4 border-t border-white/10 mt-8">
-    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-      <div>
-        <strong class="text-white">제칠일안식일예수재림교 다산교회</strong> · 경기도 남양주시 진건읍 고재로 197
-      </div>
-      <div class="text-gray-400">
-        dsc.or.kr · Google Workspace 통합 포털 (v3.0 1차 중간 배포)
-      </div>
+  <!-- 4. 하단 고정식 네비게이션 바 (Bottom Fixed Navigation) -->
+  <nav class="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-gray-200 dark:border-slate-800 safe-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+    <div class="max-w-3xl mx-auto grid grid-cols-5 h-16">
+      <button type="button" data-tab="home" onclick="switchBottomTab('home')"
+        class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-navy dark:text-gold font-bold transition">
+        <span class="text-lg leading-none">🏠</span>
+        <span class="text-[10px]">홈</span>
+      </button>
+      <button type="button" data-tab="worship" onclick="switchBottomTab('worship')"
+        class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition">
+        <span class="text-lg leading-none">📅</span>
+        <span class="text-[10px]">예배·예약</span>
+      </button>
+      <button type="button" data-tab="work" onclick="switchBottomTab('work')"
+        class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition">
+        <span class="text-lg leading-none">🧩</span>
+        <span class="text-[10px]">전체업무</span>
+      </button>
+      <button type="button" data-tab="bulletin" onclick="switchBottomTab('bulletin')"
+        class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition">
+        <span class="text-lg leading-none">📄</span>
+        <span class="text-[10px]">말씀·주보</span>
+      </button>
+      <button type="button" data-tab="my" onclick="switchBottomTab('my')"
+        class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition">
+        <span class="text-lg leading-none">👤</span>
+        <span class="text-[10px]">내정보</span>
+      </button>
     </div>
-  </footer>
+  </nav>
 
-  <!-- 9. 서비스 조회·신청 모달 -->
-  <div id="service-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-[1px] flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-gray-200 dark:border-slate-700">
-      <div class="sticky top-0 bg-white dark:bg-slate-900 px-5 py-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          <span id="modal-icon" class="text-2xl">📌</span>
-          <div>
-            <h3 id="modal-title" class="font-bold text-base text-navy dark:text-white">서비스 제목</h3>
-            <p id="modal-subtitle" class="text-[11px] text-gray-500 dark:text-slate-400">연동 정보</p>
+  <!-- 5. 공통 업무 클래스 실행 모달 -->
+  <div id="service-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-[1px] flex items-end sm:items-center justify-center sm:p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl max-w-2xl w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-gray-200 dark:border-slate-700">
+      <div class="sticky top-0 z-10 bg-white dark:bg-slate-900 px-4 py-3.5 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <span id="modal-icon" class="text-xl shrink-0">📌</span>
+          <div class="min-w-0">
+            <h3 id="modal-title" class="font-bold text-sm sm:text-base text-navy dark:text-white truncate">업무 제목</h3>
+            <p id="modal-subtitle" class="text-[11px] text-gray-500 dark:text-slate-400 truncate">연동 정보</p>
           </div>
         </div>
-        <button onclick="closeServiceModal()" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl font-bold px-2">✕</button>
+        <button type="button" onclick="closeServiceModal()" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl font-bold px-2">✕</button>
       </div>
-      <div id="modal-body" class="p-5 space-y-4 text-xs sm:text-sm"></div>
+      <div id="modal-body" class="p-4 space-y-4 text-xs sm:text-sm"></div>
     </div>
   </div>
+
+  <!-- 6. 토스트 알림 -->
+  <div id="portal-toast" class="fixed top-24 left-1/2 -translate-x-1/2 z-[60] hidden bg-navyDark text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg border border-white/10"></div>
 
   <script type="module" src="./js/app.js"></script>
 </body>
