@@ -30,17 +30,187 @@ import { AttendanceModule, validateAttendanceDateAndService } from './modules/At
 
 const SESSION_KEY = 'dsc_portal_session_v4';
 const QUICK_FAV_KEY = 'dsc_quick_favorites_v1';
-const HUB_CACHE_KEY = 'dsc_public_hub_cache_v1';
-const HUB_CACHE_TTL_MS = 10 * 60 * 1000;
 const ALBUM_BGM_VIDEO_ID = 'aWzWjHUfpvU';
 const SESSION_MS = 10 * 60 * 1000;
 let sessionTimerHandle = null;
-let allMenuExpanded = false; // 기본값: false (기본 화면에는 업무별 전체 메뉴 숨김)
+
+// 5단계 RBAC 표준 코드 매핑 (제직 != 리더 분리)
+const RBAC_RANK = {
+  GUEST: 1, '외부인': 1,
+  MEMBER: 2, '성도': 2, '다산교회': 2, '제직': 2,
+  LEADER: 3, '리더': 3, '리더(반장)': 3, '리더·반장': 3,
+  STAFF: 4, '직원': 4, '운영자': 4, '직원(운영자)': 4, '직원·운영자': 4,
+  ADMIN: 5, '관리자': 5, '최고관리자': 5
+};
+
+const RBAC_LABEL_KO = {
+  GUEST: '외부인',
+  MEMBER: '성도',
+  LEADER: '리더 (반장)',
+  STAFF: '직원 (운영자)',
+  ADMIN: '관리자'
+};
+
+// 직분 보조 필터 대상 (권사·안수집사 제외)
+const OFFICER_POSITIONS = ['담임목사', '부목사', '장로', '집사'];
+
+const CATEGORY_ORDER = [
+  { key: '공통·프레임', icon: '⚙️', desc: '계정·권한·시스템 관리' },
+  { key: '예배·출석·예약', icon: '⛪', desc: '예배 예약·출석·주보·캘린더' },
+  { key: '신앙·소그룹·편의', icon: '🌱', desc: '달란트·헌금·소그룹·기도·교과책' },
+  { key: '전자신청(모듈탑재)', icon: '📝', desc: '기부금영수증·지불결의서·투표·제직' },
+  { key: '대외·소통·안내', icon: '📢', desc: '활동사진·온라인예배·교회안내' },
+  { key: '예배·봉사운영', icon: '📋', desc: '현장 체크리스트·예배순서자 매뉴얼' },
+  { key: '행정·재정·지식', icon: '🏛️', desc: '부서예산·회의록·사업과제·Wiki' }
+];
+
+// V2 마스터(33개) 기본 폴백 목록 (Portal_Programs 시트 조회 전/실패 시 사용)
+const V2_PROGRAMS_FALLBACK = [
+  { order: 10, id: 'PGM_MAIN_SHELL', category: '공통·프레임', name: '심플 메인화면·세션(10분)·바로가기·하단네비', desc: '메인 쉘 및 세션 관리', moduleKey: '', sheet: '', url: '', icon: '🏠', active: true, minRole: 'GUEST', perms: { GUEST: 'R', MEMBER: 'R', LEADER: 'R', STAFF: 'R', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 20, id: 'PGM_PROG_AUTH', category: '공통·프레임', name: '프로그램 목록·5단계 RBAC 권한관리(사용여부)', desc: '프로그램별 사용여부 및 5단계 권한 제어', moduleKey: '', sheet: 'Portal_Programs', url: '', icon: '🔐', active: true, minRole: 'ADMIN', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'N', STAFF: 'N', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 30, id: 'PGM_USER_ADMIN', category: '공통·프레임', name: '회원 가입승인·RBAC 등급·직분·소속반 관리', desc: '사용자 등급·직분·소속반 관리', moduleKey: '', sheet: 'Users_Master', url: '', icon: '👥', active: true, minRole: 'ADMIN', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'N', STAFF: 'N', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 40, id: 'PGM_SYS_LOGS', category: '공통·프레임', name: '시스템 설정 및 감사로그 조회', desc: '시스템 설정 및 감사로그 조회', moduleKey: '', sheet: 'System_Logs', url: '', icon: '📜', active: true, minRole: 'ADMIN', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'N', STAFF: 'N', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: false },
+  { order: 50, id: 'PGM_ACCOUNT_REQ', category: '공통·프레임', name: '아이디 신청 / 비밀번호 초기화 (다락방)', desc: '신규 계정 발급 요청 및 초기화', moduleKey: 'darakbang', sheet: 'Darakbang_Requests', url: '', icon: '🔑', active: true, minRole: 'GUEST', perms: { GUEST: 'W', MEMBER: 'W', LEADER: 'W', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+
+  { order: 110, id: 'PGM_WORSHIP_RES', category: '예배·출석·예약', name: '예배참석예약 (1일전~3시간전 / 달란트 1.5배)', desc: '하루전~3시간전 예약 · 출석시 달란트 1.5배', moduleKey: '', sheet: 'Worship_Reservations', url: '', icon: '🎟️', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'W', LEADER: 'W', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 120, id: 'PGM_FORECAST', category: '예배·출석·예약', name: '참석예상인원 현황 (예배별·소속반별)', desc: '예배별·소속반별 사전예약 집계', moduleKey: '', sheet: 'Worship_Reservations', url: '', icon: '📊', active: true, minRole: 'LEADER', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'R', STAFF: 'R', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 130, id: 'PGM_ATTENDANCE', category: '예배·출석·예약', name: '출석현황 (화/금/안·대리출석·검색)', desc: '모바일 출석체크 및 통계', moduleKey: 'attendance', sheet: 'Attendance_Log', url: '', icon: '✅', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'R', LEADER: 'W', STAFF: 'A', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 140, id: 'PGM_WEEKLY_DUTY', category: '예배·출석·예약', name: '이번 주 / 다음 주 담당표 (예배·식사·주차)', desc: '주간 사역일정·당번·공지 관리', moduleKey: 'weeklyDuty', sheet: 'Weekly_Duties', url: '', icon: '🗓️', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'R', LEADER: 'W', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 150, id: 'PGM_BULLETIN', category: '예배·출석·예약', name: '예배주보 PDF 뷰어 & 아카이브', desc: '최신 주보 자동 뷰어 및 과거 주보 검색', moduleKey: '', sheet: '', url: '', icon: '📰', active: true, minRole: 'GUEST', perms: { GUEST: 'R', MEMBER: 'R', LEADER: 'R', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 160, id: 'PGM_CALENDAR', category: '예배·출석·예약', name: '다산교회 통합 캘린더', desc: '공용 캘린더 일정 조회', moduleKey: '', sheet: '', url: '', icon: '📅', active: true, minRole: 'GUEST', perms: { GUEST: 'R', MEMBER: 'R', LEADER: 'R', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+
+  { order: 210, id: 'PGM_MY_DASHBOARD', category: '신앙·소그룹·편의', name: '나의 신앙 대시보드 (로그인 확장뷰)', desc: '누적달란트·금월출석·예배예약·즐겨찾기', moduleKey: '', sheet: 'Users_Master', url: '', icon: '🪪', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'R', LEADER: 'R', STAFF: 'R', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 220, id: 'PGM_TALENT', category: '신앙·소그룹·편의', name: '달란트 관리 (신청·승인/반려·검색·현황)', desc: '봉사·출석·활동 달란트 신청 및 승인/반려', moduleKey: '', sheet: 'Talent_Ledger', url: '', icon: '🪙', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'W', LEADER: 'W', STAFF: 'A', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 230, id: 'PGM_OFFERINGS', category: '신앙·소그룹·편의', name: '헌금내역 조회 (본인 전용 격리)', desc: '본인 Google_Email 일치 헌금내역 격리 조회', moduleKey: 'offerings', sheet: 'Offerings_Log', url: '', icon: '🧾', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'R', LEADER: 'R', STAFF: 'R', ADMIN: 'R' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 240, id: 'PGM_BOOK_REQ', category: '신앙·소그룹·편의', name: '서적·교과책 신청조회', desc: '신앙도서·교재 신청 및 지급 상태', moduleKey: 'bookRequest', sheet: 'Book_Requests', url: '', icon: '📚', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'W', LEADER: 'W', STAFF: 'A', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 250, id: 'PGM_SMALLGROUP', category: '신앙·소그룹·편의', name: '안식일학교 9개반 소그룹 대시보드', desc: '소그룹 대시보드 및 리더(반장) 보고서 작성', moduleKey: '', sheet: 'SmallGroup_Reports', url: '', icon: '🌱', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'R', LEADER: 'W', STAFF: 'A', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 260, id: 'PGM_PRAYER', category: '신앙·소그룹·편의', name: '중보기도신청 (전체/교역자 비공개)', desc: '기도제목 등록 및 전체/교역자 비공개 필터링', moduleKey: '', sheet: 'Prayer_Requests', url: '', icon: '🙏', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'W', LEADER: 'W', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+
+  { order: 310, id: 'PGM_E_RECEIPT', category: '전자신청(모듈탑재)', name: '전자신청_기부금영수증', desc: '기부금영수증 신청 및 발급 처리', moduleKey: '', sheet: 'Donation_Receipts', url: '', icon: '📄', active: true, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'W', LEADER: 'W', STAFF: 'A', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 320, id: 'PGM_E_VOUCHER', category: '전자신청(모듈탑재)', name: '전자결재_지불결의서', desc: '지불결의서 기안/부서조회 및 결재', moduleKey: '', sheet: 'Payment_Vouchers', url: '', icon: '💳', active: true, minRole: 'STAFF', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'N', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 330, id: 'PGM_E_SUGGEST', category: '전자신청(모듈탑재)', name: '전자신청_제안함 및 제안관리', desc: '제안함 신청 및 관리 (2027-Q1 순차)', moduleKey: '', sheet: 'Suggestions', url: '', icon: '💡', active: false, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'W', LEADER: 'W', STAFF: 'A', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 340, id: 'PGM_E_VOTE', category: '전자신청(모듈탑재)', name: '전자투표_직원회안건', desc: '직원회 전용 온라인 투표 (2027-Q1 순차)', moduleKey: '', sheet: 'Staff_Votes', url: '', icon: '🗳️', active: false, minRole: 'STAFF', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'N', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 350, id: 'PGM_OFFICER_HUB', category: '전자신청(모듈탑재)', name: '전체 제직 공지·수련회 자료·제직투표', desc: '직분 보조필터 대상 제직 공지·자료·투표', moduleKey: '', sheet: 'Site_Contents', url: '', icon: '📌', active: false, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'R*', LEADER: 'R*', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'OFFICER_ONLY', showPc: true, showMobile: true },
+
+  { order: 410, id: 'PGM_GALLERY', category: '대외·소통·안내', name: '활동사진 갤러리 (정방향/역방향 슬라이드)', desc: '구글 드라이브 연동 활동사진 앨범', moduleKey: '', sheet: '', url: 'https://drive.google.com/drive/folders/1cLRT8O-o6085G3H9J0u6_3W_Z8Y2X1V0', icon: '🖼️', active: true, minRole: 'GUEST', perms: { GUEST: 'R', MEMBER: 'R', LEADER: 'R', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 420, id: 'PGM_MEDIA_QT', category: '대외·소통·안내', name: '온라인예배·갓모닝 새벽묵상 & 카톡공유', desc: '유튜브 온라인예배 및 새벽묵상 공유', moduleKey: '', sheet: 'Site_Contents', url: 'https://www.youtube.com/@sda5239', icon: '🎥', active: true, minRole: 'GUEST', perms: { GUEST: 'R', MEMBER: 'R', LEADER: 'R', STAFF: 'R', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 430, id: 'PGM_CHURCH_INFO', category: '대외·소통·안내', name: '교회소개·예배안내·오시는 길·7대 헌금설명', desc: '교회 안내 및 예배·헌금 정보', moduleKey: '', sheet: 'Site_Contents', url: '', icon: '⛪', active: true, minRole: 'GUEST', perms: { GUEST: 'R', MEMBER: 'R', LEADER: 'R', STAFF: 'R', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 440, id: 'PGM_MISSION_CLUB', category: '대외·소통·안내', name: '패스파인더·어드벤처러·OneVoice27/Light27', desc: '선교 캠페인 및 클럽 안내 (2027-Q1)', moduleKey: '', sheet: 'Site_Contents', url: '', icon: '⛺', active: false, minRole: 'GUEST', perms: { GUEST: 'R', MEMBER: 'W', LEADER: 'W', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+
+  { order: 510, id: 'PGM_CHECKLIST4', category: '예배·봉사운영', name: '4대 현장 체크리스트 (장로·집사·식사·안전)', desc: '모바일 현장 점검 체크리스트 (2027-Q1)', moduleKey: '', sheet: 'Checklists_Log', url: '', icon: '📋', active: false, minRole: 'LEADER', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'W', STAFF: 'A', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 520, id: 'PGM_WORSHIP_GUIDE', category: '예배·봉사운영', name: '예배순서자 매뉴얼 (사회·기도·설교자)', desc: '예배 진행 흐름 및 표준 가이드 (2027-Q1)', moduleKey: '', sheet: '', url: '', icon: '📘', active: false, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'R', LEADER: 'R', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+
+  { order: 610, id: 'PGM_DEPT_BUDGET', category: '행정·재정·지식', name: '부서별 지출·예산 관리 조회', desc: '소속 부서 예산·지출 조회 (2027-Q1)', moduleKey: '', sheet: 'Dept_Budgets', url: '', icon: '💼', active: false, minRole: 'STAFF', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'N', STAFF: 'R', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: false },
+  { order: 620, id: 'PGM_MINUTES', category: '행정·재정·지식', name: '직원회 회의록 보안 아카이브', desc: '직원회 의결 회의록 보안 열람 (2027-Q1)', moduleKey: '', sheet: 'Minutes_Archive', url: '', icon: '🗂️', active: false, minRole: 'STAFF', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'N', STAFF: 'R', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true },
+  { order: 630, id: 'PGM_PROJECTS27', category: '행정·재정·지식', name: '2027 주요사업과제 관리', desc: '2027 핵심 사업 진척률 관리 (2027-순차)', moduleKey: '', sheet: 'Key_Projects', url: '', icon: '🎯', active: false, minRole: 'STAFF', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'N', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: false },
+  { order: 640, id: 'PGM_CONTRACTS', category: '행정·재정·지식', name: '보험계약·자동이체 통합 관리', desc: '보험 만기 및 자동이체 관리 (2027-순차)', moduleKey: '', sheet: 'Contracts_Admin', url: '', icon: '🛡️', active: false, minRole: 'STAFF', perms: { GUEST: 'N', MEMBER: 'N', LEADER: 'N', STAFF: 'R', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: false },
+  { order: 650, id: 'PGM_WIKI', category: '행정·재정·지식', name: '다산교회 Wiki (내규·절기매뉴얼·장비)', desc: '내규·절기매뉴얼·장비 문서 (2027-순차)', moduleKey: '', sheet: '', url: '', icon: '📖', active: false, minRole: 'MEMBER', perms: { GUEST: 'N', MEMBER: 'R', LEADER: 'R', STAFF: 'W', ADMIN: 'A' }, officerFilter: 'N', showPc: true, showMobile: true }
+];
+
+let activeProgramList = V2_PROGRAMS_FALLBACK.slice();
+
+function toRbacCode(raw) {
+  const s = String(raw || '').trim();
+  const upper = s.toUpperCase();
+  if (['GUEST', 'MEMBER', 'LEADER', 'STAFF', 'ADMIN'].includes(upper)) return upper;
+  if (s === '관리자' || s === '최고관리자') return 'ADMIN';
+  if (s === '직원' || s === '운영자' || s === '직원(운영자)' || s === '직원·운영자') return 'STAFF';
+  if (s === '리더' || s === '반장' || s === '리더(반장)' || s === '리더·반장') return 'LEADER';
+  if (s === '성도' || s === '다산교회' || s === '제직') return 'MEMBER';
+  return 'GUEST';
+}
+
+function getCurrentRbacCode() {
+  return toRbacCode(state.currentRole || 'GUEST');
+}
+
+function getCurrentUserPosition() {
+  return String(state.currentUserProfile?.position || '').trim();
+}
+
+function hasOfficerPosition(position) {
+  return OFFICER_POSITIONS.includes(String(position || '').trim());
+}
+
+function normalizeProgramRow(raw, idx = 0) {
+  const id = String(raw.Program_ID || raw.id || raw['프로그램ID'] || '').trim();
+  const fallback = V2_PROGRAMS_FALLBACK.find(p => p.id === id) || {};
+  const moduleClass = String(raw.모듈클래스명 || raw.moduleClass || fallback.moduleClass || '').trim();
+
+  let moduleKey = fallback.moduleKey || '';
+  if (!moduleKey) {
+    if (moduleClass === 'AttendanceModule') moduleKey = 'attendance';
+    else if (moduleClass === 'WeeklyDutyModule') moduleKey = 'weeklyDuty';
+    else if (moduleClass === 'DarakbangModule') moduleKey = 'darakbang';
+    else if (moduleClass === 'OfferingsModule') moduleKey = 'offerings';
+    else if (moduleClass === 'BookRequestModule') moduleKey = 'bookRequest';
+  }
+
+  const refSource = String(raw.연동시트_및_참조소스 || raw.sheet || fallback.sheet || '').trim();
+  let sheet = fallback.sheet || '';
+  let url = fallback.url || '';
+  if (refSource.startsWith('http')) {
+    url = refSource;
+  } else if (refSource) {
+    const firstToken = refSource.split('/')[0].trim();
+    if (/^[A-Za-z0-9_]+$/.test(firstToken)) sheet = firstToken;
+  }
+
+  const activeRaw = raw.사용여부 !== undefined ? raw.사용여부 : raw.active;
+  const active = activeRaw !== undefined
+    ? (activeRaw === true || String(activeRaw).trim().toUpperCase() === 'Y')
+    : (fallback.active !== undefined ? fallback.active : true);
+
+  const pcRaw = raw.PC노출 !== undefined ? raw.PC노출 : raw.showPc;
+  const mobRaw = raw.모바일노출 !== undefined ? raw.모바일노출 : raw.showMobile;
+
+  return {
+    order: Number(raw.정렬순서 ?? raw.order ?? fallback.order ?? (idx + 1) * 10) || 999,
+    id: id || `PGM_${idx + 1}`,
+    category: String(raw.기능분류 || raw.category || fallback.category || '공통·프레임').trim(),
+    name: String(raw.프로그램명 || raw.name || fallback.name || id).trim(),
+    desc: String(raw.권한_보안_및_개발비고 || raw.desc || fallback.desc || refSource || '').trim(),
+    moduleKey,
+    sheet,
+    url,
+    icon: fallback.icon || '📌',
+    active,
+    minRole: toRbacCode(raw.최소권한코드 || raw.minRole || fallback.minRole || 'GUEST'),
+    perms: {
+      GUEST: String(raw['Lv0_GUEST(외부인)'] || raw.perms?.GUEST || fallback.perms?.GUEST || 'N').trim(),
+      MEMBER: String(raw['Lv1_MEMBER(성도)'] || raw.perms?.MEMBER || fallback.perms?.MEMBER || 'N').trim(),
+      LEADER: String(raw['Lv2_LEADER(리더·반장)'] || raw.perms?.LEADER || fallback.perms?.LEADER || 'N').trim(),
+      STAFF: String(raw['Lv3_STAFF(직원·운영자)'] || raw.perms?.STAFF || fallback.perms?.STAFF || 'N').trim(),
+      ADMIN: String(raw['Lv4_ADMIN(관리자)'] || raw.perms?.ADMIN || fallback.perms?.ADMIN || 'A').trim()
+    },
+    officerFilter: String(raw.직분보조필터 || raw.officerFilter || fallback.officerFilter || 'N').trim(),
+    showPc: pcRaw !== undefined ? (pcRaw === true || String(pcRaw).trim().toUpperCase() === 'Y') : (fallback.showPc ?? true),
+    showMobile: mobRaw !== undefined ? (mobRaw === true || String(mobRaw).trim().toUpperCase() === 'Y') : (fallback.showMobile ?? true)
+  };
+}
+
+function canAccessProgram(pgm, roleCode, position, isMobile = false) {
+  const userLv = RBAC_RANK[roleCode] || 1;
+  const adminLv = RBAC_RANK.ADMIN;
+
+  if (!pgm.active && userLv < adminLv) return false;
+  if (isMobile && pgm.showMobile === false) return false;
+  if (!isMobile && pgm.showPc === false) return false;
+
+  const perm = pgm.perms?.[roleCode] || 'N';
+  if (perm === 'N') return false;
+
+  if (pgm.officerFilter === 'OFFICER_ONLY' && perm === 'R*') {
+    return userLv >= RBAC_RANK.STAFF || hasOfficerPosition(position);
+  }
+  return true;
+}
 
 function saveSession(role, profile = null, idToken = '') {
-  if (!role || role === '외부인') { localStorage.removeItem(SESSION_KEY); return; }
+  const code = toRbacCode(role);
+  if (!code || code === 'GUEST') { localStorage.removeItem(SESSION_KEY); return; }
   localStorage.setItem(SESSION_KEY, JSON.stringify({
-    role, profile, idToken, expiresAt: Date.now() + SESSION_MS
+    role: code, profile, idToken, expiresAt: Date.now() + SESSION_MS
   }));
 }
 
@@ -48,6 +218,7 @@ function loadSession() {
   try {
     const d = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
     if (!d || Date.now() >= d.expiresAt) { localStorage.removeItem(SESSION_KEY); return null; }
+    d.role = toRbacCode(d.role);
     return d;
   } catch (e) { return null; }
 }
@@ -82,35 +253,13 @@ function showToast(msg) {
   window.__dscToast = setTimeout(() => el.classList.add('hidden'), 2500);
 }
 
-function readCachedHub() {
-  try {
-    const raw = localStorage.getItem(HUB_CACHE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.data || !parsed.savedAt) return null;
-    if (Date.now() - parsed.savedAt > HUB_CACHE_TTL_MS) return null;
-    return parsed.data;
-  } catch (e) {
-    return null;
-  }
-}
-
-function writeCachedHub(data) {
-  try {
-    localStorage.setItem(HUB_CACHE_KEY, JSON.stringify({
-      savedAt: Date.now(),
-      data
-    }));
-  } catch (e) {}
-}
-
-// 즐겨찾기메뉴 관리
+// 즐겨찾기(Quick 메뉴) 관리
 function getQuickFavorites() {
   try {
     const saved = JSON.parse(localStorage.getItem(QUICK_FAV_KEY) || 'null');
     if (Array.isArray(saved) && saved.length) return saved;
   } catch (e) {}
-  return SERVICES.filter(s => s.active).slice(0, 6).map(s => s.id);
+  return activeProgramList.filter(p => p.active && p.id !== 'PGM_MAIN_SHELL').slice(0, 6).map(p => p.id);
 }
 
 function toggleQuickFavorite(serviceId) {
@@ -136,149 +285,90 @@ function makeSlideSvg(title, sub, c1, c2) {
 const DEFAULT_SLIDES = [
   { thumb: makeSlideSvg('다산교회 안식일예배', '매주 토요일 오전 10:00 · 본당', '#1a252f', '#2c3e50'), title: '안식일학교 및 대예배', sub: '매주 토요일 09:30 / 10:00 · 다산교회 본당' },
   { thumb: makeSlideSvg('화요 · 금요 저녁예배', '말씀과 중보기도로 세워가는 공동체', '#1d3557', '#1a252f'), title: '화요 · 금요 저녁예배', sub: '매주 화·금 저녁 19:30 · 함께 기도해요' },
-  { thumb: makeSlideSvg('함께 섬기는 다산교회', '소그룹 · 패스파인더 · 어드벤처러', '#263849', '#141d26'), title: '다산교회 활동앨범', sub: '천천히 이어지는 상하 슬라이드' }
+  { thumb: makeSlideSvg('함께 섬기는 다산교회', '소그룹 · 패스파인더 · 어드벤처러', '#263849', '#141d26'), title: '다산교회 활동앨범', sub: '정방향 · 역방향 · 정지 제어 가능' }
 ];
 
-function isValidImageSrc(url) {
-  const s = String(url || '').trim();
-  return s.startsWith('https://') || s.startsWith('http://') || s.startsWith('data:image/');
-}
-
-// 기본 위로(-1) 천천히 흐르는 상하 슬라이더 (다음 1장만 미리 로드)
 const smoothVerticalSlider = {
   items: DEFAULT_SLIDES.slice(),
   index: 0,
-  direction: -1,
+  direction: 1,
   rafId: null,
   lastTick: 0,
-  intervalMs: 7500,
-  slideMs: 1400,
+  intervalMs: 4200,
+  slideMs: 650,
   transitioning: false,
-  activeSlot: 'a',
-  preloadedCache: new Map(),
-
-  getSlots() {
-    const a = document.getElementById('hero-gallery-img-a');
-    const b = document.getElementById('hero-gallery-img-b');
-    if (!a || !b) return null;
-    return this.activeSlot === 'a' ? { curr: a, next: b } : { curr: b, next: a };
-  },
 
   setItems(albums) {
     const flat = [];
     (albums || []).forEach(alb => (alb.photos || []).forEach(p => {
-      const candidate = p && (p.thumb || p.url || p.src);
-      if (isValidImageSrc(candidate)) {
-        flat.push({
-          thumb: candidate.trim(),
-          title: alb.title || '다산교회 활동사진',
-          sub: p.name || '함께 예배하고 섬기는 다산교회 공동체'
-        });
-      }
+      if (p && p.thumb) flat.push({ thumb: p.thumb, title: alb.title || '다산교회 활동사진', sub: p.name || '' });
     }));
     this.items = flat.length ? flat.slice(0, 20) : DEFAULT_SLIDES.slice();
     this.index = 0;
-    this.preloadedCache.clear();
     this.renderImmediate();
-    this.preloadNextItem();
     this.startLoop();
   },
 
-  preloadImage(src) {
-    if (!src) return Promise.resolve(false);
-    if (this.preloadedCache.has(src)) {
-      return Promise.resolve(this.preloadedCache.get(src));
-    }
-    return new Promise(resolve => {
-      const probe = new Image();
-      probe.decoding = 'async';
-      probe.loading = 'eager';
-      probe.onload = () => {
-        this.preloadedCache.set(src, true);
-        resolve(true);
-      };
-      probe.onerror = () => {
-        this.preloadedCache.set(src, false);
-        resolve(false);
-      };
-      probe.src = src;
-    });
-  },
-
-  preloadNextItem() {
-    if (!this.items.length) return;
-    const stepDir = this.direction === 0 ? -1 : this.direction;
-    const peekIdx = (this.index + stepDir + this.items.length) % this.items.length;
-    const peekItem = this.items[peekIdx];
-    if (peekItem && peekItem.thumb) {
-      this.preloadImage(peekItem.thumb);
-    }
-  },
-
-  async step(delta) {
+  step(delta) {
     if (!this.items.length || this.transitioning) return;
-    const slots = this.getSlots();
-    if (!slots) return;
-
+    const img = document.getElementById('hero-gallery-img');
+    if (!img) {
+      this.index = (this.index + delta + this.items.length) % this.items.length;
+      this.renderImmediate();
+      return;
+    }
     this.transitioning = true;
-    try {
-      const dirSign = delta >= 0 ? 1 : -1;
-      const nextIdx = (this.index + delta + this.items.length) % this.items.length;
-      const candidate = this.items[nextIdx] || DEFAULT_SLIDES[0];
-      const loaded = await this.preloadImage(candidate.thumb);
-      const targetItem = loaded ? candidate : DEFAULT_SLIDES[nextIdx % DEFAULT_SLIDES.length];
+    const dirSign = delta >= 0 ? 1 : -1;
+    const nextIdx = (this.index + delta + this.items.length) % this.items.length;
+    const nextItem = this.items[nextIdx];
 
-      const { curr, next } = slots;
-      const calmEase = `transform ${this.slideMs}ms cubic-bezier(0.25, 0.8, 0.25, 1)`;
+    img.style.transition = `transform ${this.slideMs * 0.45}ms ease-in, opacity ${this.slideMs * 0.45}ms ease-in`;
+    img.style.transform = `translateY(${dirSign * -28}px)`;
+    img.style.opacity = '0.15';
 
-      next.style.transition = 'none';
-      next.src = targetItem.thumb;
-      next.style.transform = `translateY(${dirSign < 0 ? '100%' : '-100%'})`;
-
-      curr.style.transition = 'none';
-      curr.style.transform = 'translateY(0%)';
-
-      void next.offsetHeight;
-
-      curr.style.transition = calmEase;
-      next.style.transition = calmEase;
-      curr.style.transform = `translateY(${dirSign < 0 ? '-100%' : '100%'})`;
-      next.style.transform = 'translateY(0%)';
+    setTimeout(() => {
+      this.index = nextIdx;
+      img.src = nextItem.thumb;
+      img.style.transition = 'none';
+      img.style.transform = `translateY(${dirSign * 28}px)`;
+      img.style.opacity = '0.15';
 
       const cap = document.getElementById('hero-gallery-caption');
       const sub = document.getElementById('hero-gallery-sub');
       const cnt = document.getElementById('hero-gallery-counter');
-      if (cap) cap.textContent = targetItem.title;
-      if (sub) sub.textContent = targetItem.sub || '';
-      if (cnt) cnt.textContent = `${nextIdx + 1} / ${this.items.length}`;
+      if (cap) cap.textContent = nextItem.title;
+      if (sub) sub.textContent = nextItem.sub || '';
+      if (cnt) cnt.textContent = `${this.index + 1} / ${this.items.length}`;
 
-      await new Promise(r => setTimeout(r, this.slideMs + 40));
+      void img.offsetHeight;
+      img.style.transition = `transform ${this.slideMs * 0.55}ms ease-out, opacity ${this.slideMs * 0.55}ms ease-out`;
+      img.style.transform = 'translateY(0)';
+      img.style.opacity = '1';
 
-      this.index = nextIdx;
-      this.activeSlot = this.activeSlot === 'a' ? 'b' : 'a';
-      this.preloadNextItem();
-    } finally {
-      this.transitioning = false;
-    }
+      setTimeout(() => {
+        img.style.transition = '';
+        img.style.transform = '';
+        this.transitioning = false;
+      }, this.slideMs * 0.55 + 30);
+    }, this.slideMs * 0.45);
   },
 
   setDirection(dir) {
     this.direction = dir;
     this.lastTick = performance.now();
     this.updateBtns();
-    this.preloadNextItem();
     this.startLoop();
   },
 
   updateBtns() {
     const active = 'px-2 py-1 rounded-md text-[11px] font-bold bg-navy text-white dark:bg-gold dark:text-navyDark transition';
     const idle = 'px-2 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition';
-    const r = document.getElementById('btn-dir-rev');
-    const p = document.getElementById('btn-dir-pause');
     const f = document.getElementById('btn-dir-fwd');
-    if (r) r.className = this.direction === -1 ? active : idle;
-    if (p) p.className = this.direction === 0 ? active : idle;
+    const p = document.getElementById('btn-dir-pause');
+    const r = document.getElementById('btn-dir-rev');
     if (f) f.className = this.direction === 1 ? active : idle;
+    if (p) p.className = this.direction === 0 ? active : idle;
+    if (r) r.className = this.direction === -1 ? active : idle;
   },
 
   startLoop() {
@@ -297,26 +387,12 @@ const smoothVerticalSlider = {
   },
 
   renderImmediate() {
-    const a = document.getElementById('hero-gallery-img-a');
-    const b = document.getElementById('hero-gallery-img-b');
-    const item = this.items[this.index] || DEFAULT_SLIDES[0];
-    this.activeSlot = 'a';
-    if (a) {
-      a.onerror = () => {
-        a.onerror = null;
-        a.src = DEFAULT_SLIDES[0].thumb;
-      };
-      a.style.transition = 'none';
-      a.src = item.thumb;
-      a.style.transform = 'translateY(0%)';
-    }
-    if (b) {
-      b.style.transition = 'none';
-      b.style.transform = 'translateY(100%)';
-    }
+    const img = document.getElementById('hero-gallery-img');
     const cap = document.getElementById('hero-gallery-caption');
     const sub = document.getElementById('hero-gallery-sub');
     const cnt = document.getElementById('hero-gallery-counter');
+    const item = this.items[this.index] || DEFAULT_SLIDES[0];
+    if (img) { img.src = item.thumb; img.style.opacity = '1'; img.style.transform = 'translateY(0)'; }
     if (cap) cap.textContent = item.title;
     if (sub) sub.textContent = item.sub || '';
     if (cnt) cnt.textContent = `${this.index + 1} / ${this.items.length}`;
@@ -324,7 +400,6 @@ const smoothVerticalSlider = {
   }
 };
 
-// 앨범 배경음악(BGM) 토글
 let bgmPlaying = false;
 function toggleAlbumBgm() {
   const bar = document.getElementById('album-bgm-player');
@@ -362,18 +437,21 @@ function getUpcomingWorshipSlots() {
   }).sort((a, b) => a.target - b.target);
 }
 
-// 나의 대시보드
+// 나의 신앙 대시보드
 function renderPersonalizedCard() {
   const card = document.getElementById('personalized-card');
   if (!card) return;
-  const userLv = ROLE_LEVEL[state.currentRole] || 1;
+  const roleCode = getCurrentRbacCode();
+  const userLv = RBAC_RANK[roleCode] || 1;
+  const roleKo = RBAC_LABEL_KO[roleCode] || '외부인';
   const p = state.currentUserProfile;
+  const position = getCurrentUserPosition();
   const real = Boolean(state.currentIdToken) && Boolean(p);
 
   if (userLv < 2) {
     card.innerHTML = `
       <div class="bg-white dark:bg-slate-900 rounded-2xl px-3.5 py-2.5 shadow-sm border border-gray-200/80 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
-        <span class="font-bold text-navy dark:text-white">나의 대시보드</span>
+        <span class="font-bold text-navy dark:text-white">나의 신앙 대시보드</span>
         <span class="text-[11px] text-gray-500 dark:text-slate-400">Lv.1 외부인</span>
       </div>`;
     return;
@@ -382,85 +460,97 @@ function renderPersonalizedCard() {
   card.innerHTML = `
     <div class="bg-white dark:bg-slate-900 rounded-2xl px-3.5 py-2.5 shadow-sm border border-gray-200/80 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
       <div class="flex items-center gap-2 min-w-0">
-        <span class="font-bold text-navy dark:text-gold shrink-0">Lv.${userLv} ${state.currentRole}</span>
+        <span class="font-bold text-navy dark:text-gold shrink-0">Lv.${userLv} ${roleKo}</span>
+        ${position ? `<span class="px-1.5 py-0.5 rounded bg-amber-100/80 dark:bg-amber-900/30 text-[10px] font-bold text-amber-900 dark:text-gold shrink-0">${position}</span>` : ''}
         <span class="truncate text-gray-600 dark:text-slate-300">${real ? sanitizeMemberName(p.name) : '시연 모드'} · ${real ? (p.groupName || '미배정') : '겸손반'}</span>
       </div>
       <span class="font-bold text-emerald-700 dark:text-emerald-400 shrink-0">${real ? `${Number(p.talent || 0)}T` : '120T'}</span>
     </div>`;
 }
 
-// 업무별 전체 메뉴 렌더링
+// 기능분류별 전체 메뉴 렌더링
 function renderAllBusinessMenu() {
   const grid = document.getElementById('all-business-menu-grid');
   const badge = document.getElementById('all-menu-role-badge');
-  const userLv = ROLE_LEVEL[state.currentRole] || 1;
-  if (badge) badge.textContent = `Lv.${userLv} ${state.currentRole}`;
+  const roleCode = getCurrentRbacCode();
+  const userLv = RBAC_RANK[roleCode] || 1;
+  const roleKo = RBAC_LABEL_KO[roleCode] || '외부인';
+  const position = getCurrentUserPosition();
+  const isMobile = window.innerWidth < 768;
+  const favIds = getQuickFavorites();
+
+  if (badge) {
+    badge.textContent = `Lv.${userLv} ${roleKo}${position ? ` · ${position}` : ''}`;
+  }
   if (!grid) return;
 
-  const list = SERVICES.filter(s => s.active || userLv >= 5);
-  grid.innerHTML = list.map(s => {
-    const ok = userLv >= s.minRole && s.active;
-    return `
-      <button type="button" onclick="openServiceById('${s.id}')"
-        class="p-3 rounded-xl border text-left transition ${ok
-          ? 'bg-skyBg/70 hover:bg-skyBg dark:bg-slate-800 dark:hover:bg-slate-700/80 border-gray-200 dark:border-slate-700'
-          : 'opacity-55 bg-gray-50 dark:bg-slate-800/40 border-gray-200 dark:border-slate-800'}">
-        <div class="flex items-center justify-between gap-1">
-          <span class="text-base">${ok ? s.icon : '🔒'}</span>
-          <span class="text-[10px] font-semibold text-gray-400">Lv.${s.minRole}+</span>
-        </div>
-        <div class="font-bold text-xs text-navy dark:text-white mt-1 truncate">${s.title}</div>
-        <div class="text-[10px] text-gray-500 dark:text-slate-400 truncate mt-0.5">${s.desc}</div>
-      </button>`;
-  }).join('');
-}
+  const candidates = activeProgramList
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .filter(p => p.id !== 'PGM_MAIN_SHELL' && (p.active || userLv >= RBAC_RANK.ADMIN));
 
-function applyAllTabMode() {
-  const galleryPanel = document.getElementById('home-gallery-panel');
-  const menuPanel = document.getElementById('all-business-menu');
-  if (galleryPanel) galleryPanel.classList.toggle('hidden', allMenuExpanded);
-  if (menuPanel) menuPanel.classList.toggle('hidden', !allMenuExpanded);
-  if (allMenuExpanded) {
-    renderAllBusinessMenu();
-  }
-}
-
-function toggleAllMenuExpanded(forceState = null) {
-  allMenuExpanded = typeof forceState === 'boolean' ? forceState : !allMenuExpanded;
-  state.currentTab = 'all';
-  ['all', 'worship', 'my'].forEach(t => {
-    const el = document.getElementById('tab-view-' + t);
-    if (el) el.classList.toggle('hidden', t !== 'all');
+  const grouped = new Map();
+  CATEGORY_ORDER.forEach(catMeta => grouped.set(catMeta.key, []));
+  candidates.forEach(pgm => {
+    const cat = pgm.category || '공통·프레임';
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat).push(pgm);
   });
-  document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
-    const active = btn.getAttribute('data-tab') === 'all';
-    btn.className = active
-      ? 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-navy dark:text-gold font-bold transition'
-      : 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition';
-  });
-  applyAllTabMode();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  grid.className = 'space-y-3.5';
+  grid.innerHTML = CATEGORY_ORDER
+    .map(catMeta => {
+      const items = grouped.get(catMeta.key) || [];
+      if (!items.length) return '';
+
+      return `
+        <div class="space-y-2">
+          <div class="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-1">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span>${catMeta.icon}</span>
+              <h3 class="text-xs font-extrabold text-navy dark:text-gold truncate">${catMeta.key}</h3>
+              <span class="text-[10px] text-gray-400 hidden sm:inline truncate">· ${catMeta.desc}</span>
+            </div>
+            <span class="text-[10px] font-semibold text-gray-400 shrink-0">${items.length}개</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            ${items.map(pgm => {
+              const ok = pgm.active && canAccessProgram(pgm, roleCode, position, isMobile);
+              const isFav = favIds.includes(pgm.id);
+              const perm = pgm.perms?.[roleCode] || 'N';
+              return `
+                <div class="p-3 rounded-xl border transition flex flex-col justify-between gap-2 ${ok
+                  ? 'bg-skyBg/70 hover:bg-skyBg dark:bg-slate-800 dark:hover:bg-slate-700/80 border-gray-200 dark:border-slate-700'
+                  : 'opacity-60 bg-gray-50 dark:bg-slate-800/40 border-gray-200 dark:border-slate-800'}">
+                  <button type="button" onclick="openServiceById('${pgm.id}')" class="text-left">
+                    <div class="flex items-center justify-between gap-1">
+                      <span class="text-base">${ok ? pgm.icon : '🔒'}</span>
+                      <div class="flex items-center gap-1">
+                        ${!pgm.active ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">준비중</span>' : ''}
+                        <span class="text-[10px] font-semibold text-gray-400">${pgm.minRole}${perm === 'A' ? '·관리' : ''}</span>
+                      </div>
+                    </div>
+                    <div class="font-bold text-xs text-navy dark:text-white mt-1 line-clamp-1">${pgm.name}</div>
+                    <div class="text-[10px] text-gray-500 dark:text-slate-400 line-clamp-1 mt-0.5">${pgm.desc}</div>
+                  </button>
+                  <div class="flex items-center justify-between pt-0.5">
+                    <span class="text-[10px] text-gray-400 font-mono">${pgm.id}</span>
+                    <button type="button" onclick="toggleQuickFavorite('${pgm.id}')"
+                      class="text-[11px] font-bold ${isFav ? 'text-amber-500 dark:text-gold' : 'text-gray-400 hover:text-amber-500'}">
+                      ${isFav ? '★ 즐겨찾기' : '☆ 즐겨찾기'}
+                    </button>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    })
+    .filter(Boolean)
+    .join('');
 }
 
-function resetToHomeView() {
-  allMenuExpanded = false;
-  switchBottomTab('all');
-}
-
-// 3단 고정 네비게이션 전환:
-// - [전체메뉴] 클릭: 기본 화면에서는 전체 메뉴를 열고, 이미 열린 상태에서는 다시 기본 화면으로 복귀
-// - [예배출석및예약] / [즐겨찾기메뉴] 클릭: 해당 탭으로 이동하며 전체 메뉴 펼침 상태 초기화
+// 3단 고정 네비게이션 전환: [전체메뉴] [예배출석및예약] [즐겨찾기메뉴]
 function switchBottomTab(tab) {
-  if (tab === 'all') {
-    if (state.currentTab === 'all') {
-      allMenuExpanded = !allMenuExpanded;
-    } else {
-      allMenuExpanded = true;
-    }
-  } else {
-    allMenuExpanded = false;
-  }
-
   state.currentTab = tab;
   ['all', 'worship', 'my'].forEach(t => {
     const el = document.getElementById('tab-view-' + t);
@@ -472,8 +562,7 @@ function switchBottomTab(tab) {
       ? 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-navy dark:text-gold font-bold transition'
       : 'bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition';
   });
-
-  if (tab === 'all') applyAllTabMode();
+  if (tab === 'all') renderAllBusinessMenu();
   if (tab === 'worship') renderWorshipTab();
   if (tab === 'my') renderMyTab();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -494,7 +583,7 @@ function renderWorshipTab() {
           class="p-3 rounded-xl bg-navy dark:bg-gold text-white dark:text-navyDark font-bold text-xs text-left">
           🎟️ 예배참석예약<div class="text-[10px] font-normal opacity-85 mt-0.5">24h~3h 전 예약</div>
         </button>
-        <button type="button" onclick="openServiceById('PGM_WOR_ATT')"
+        <button type="button" onclick="openServiceById('PGM_ATTENDANCE')"
           class="p-3 rounded-xl bg-skyBg dark:bg-slate-800 text-navy dark:text-white font-bold text-xs text-left border border-gray-200 dark:border-slate-700">
           ✅ 예배 출석체크<div class="text-[10px] font-normal text-gray-500 mt-0.5">화/금/안 출석 등록</div>
         </button>
@@ -512,9 +601,12 @@ function renderWorshipTab() {
 function renderMyTab() {
   const el = document.getElementById('tab-view-my');
   if (!el) return;
-  const userLv = ROLE_LEVEL[state.currentRole] || 1;
+  const roleCode = getCurrentRbacCode();
+  const userLv = RBAC_RANK[roleCode] || 1;
+  const position = getCurrentUserPosition();
+  const isMobile = window.innerWidth < 768;
   const favIds = getQuickFavorites();
-  const favServices = SERVICES.filter(s => favIds.includes(s.id) && (s.active || userLv >= 5));
+  const favServices = activeProgramList.filter(p => favIds.includes(p.id) && (p.active || userLv >= RBAC_RANK.ADMIN));
 
   el.innerHTML = `
     <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-3">
@@ -531,12 +623,12 @@ function renderMyTab() {
       ${favServices.length ? `
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
           ${favServices.map(s => {
-            const ok = userLv >= s.minRole && s.active;
+            const ok = s.active && canAccessProgram(s, roleCode, position, isMobile);
             return `
               <div class="relative p-3 rounded-xl border bg-skyBg/70 dark:bg-slate-800 border-gray-200 dark:border-slate-700 flex flex-col justify-between gap-2">
                 <button type="button" onclick="openServiceById('${s.id}')" class="text-left ${ok ? '' : 'opacity-60'}">
                   <div class="text-base">${ok ? s.icon : '🔒'}</div>
-                  <div class="font-bold text-xs text-navy dark:text-white mt-1">${s.title}</div>
+                  <div class="font-bold text-xs text-navy dark:text-white mt-1">${s.name}</div>
                   <div class="text-[10px] text-gray-500 truncate">${s.desc}</div>
                 </button>
                 <button type="button" onclick="toggleQuickFavorite('${s.id}')"
@@ -551,22 +643,22 @@ function renderMyTab() {
     <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-2">
       <div class="font-bold text-xs text-navy dark:text-white">➕ 즐겨찾기 편집</div>
       <div class="flex flex-wrap gap-1.5">
-        ${SERVICES.filter(s => s.active || userLv >= 5).map(s => {
+        ${activeProgramList.filter(p => p.id !== 'PGM_MAIN_SHELL' && (p.active || userLv >= RBAC_RANK.ADMIN)).map(s => {
           const isFav = favIds.includes(s.id);
           return `<button type="button" onclick="toggleQuickFavorite('${s.id}')"
             class="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition ${isFav ? 'bg-gold/20 border-gold text-navy dark:text-gold' : 'bg-skyBg/60 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300'}">
-            ${isFav ? '★' : '☆'} ${s.title}
+            ${isFav ? '★' : '☆'} ${s.name}
           </button>`;
         }).join('')}
       </div>
     </div>
 
     <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-2">
-      <div class="font-bold text-xs text-navy dark:text-white">🎭 5단계 권한 시연 (현재: Lv.${userLv} ${state.currentRole})</div>
+      <div class="font-bold text-xs text-navy dark:text-white">🎭 5단계 권한 시연 (현재: Lv.${userLv} ${RBAC_LABEL_KO[roleCode]})</div>
       <div class="grid grid-cols-1 gap-1.5">
-        ${ROLE_DEFS.map(r => `<button type="button" onclick="changePreviewRole('${r.key}')"
-          class="flex justify-between px-3 py-2 rounded-xl border text-xs font-bold ${state.currentRole === r.key ? 'bg-navy text-white border-navy dark:bg-gold dark:text-navyDark' : 'bg-skyBg/60 dark:bg-slate-800 border-gray-200 dark:border-slate-700'}">
-          <span>${r.label}</span><span>${state.currentRole === r.key ? '● 현재' : '전환'}</span>
+        ${['GUEST', 'MEMBER', 'LEADER', 'STAFF', 'ADMIN'].map(code => `<button type="button" onclick="changePreviewRole('${code}')"
+          class="flex justify-between px-3 py-2 rounded-xl border text-xs font-bold ${roleCode === code ? 'bg-navy text-white border-navy dark:bg-gold dark:text-navyDark' : 'bg-skyBg/60 dark:bg-slate-800 border-gray-200 dark:border-slate-700'}">
+          <span>Lv.${RBAC_RANK[code]} ${RBAC_LABEL_KO[code]} (${code})</span><span>${roleCode === code ? '● 현재' : '전환'}</span>
         </button>`).join('')}
       </div>
     </div>`;
@@ -714,11 +806,36 @@ async function handlePrayerSubmit(e) {
 }
 
 async function openServiceById(id) {
-  const srv = SERVICES.find(s => s.id === id);
+  const srv = activeProgramList.find(p => p.id === id) || SERVICES.find(s => s.id === id);
   if (!srv) return;
-  const userLv = ROLE_LEVEL[state.currentRole] || 1;
-  if (userLv < srv.minRole) { alert(`[${getRoleNameByLevel(srv.minRole)}] 등급(Lv.${srv.minRole}) 이상 이용 가능합니다.`); return; }
-  if (srv.url && srv.url.startsWith('http')) { window.open(srv.url, '_blank'); return; }
+
+  if (!srv.active && (RBAC_RANK[getCurrentRbacCode()] || 1) < RBAC_RANK.ADMIN) {
+    alert('해당 메뉴는 순차 오픈 준비 중입니다.');
+    return;
+  }
+
+  const roleCode = getCurrentRbacCode();
+  const position = getCurrentUserPosition();
+  const isMobile = window.innerWidth < 768;
+
+  if (!canAccessProgram(srv, roleCode, position, isMobile)) {
+    const reqLabel = RBAC_LABEL_KO[srv.minRole] || srv.minRole;
+    alert(`[${reqLabel}] 권한 이상 이용 가능합니다.`);
+    return;
+  }
+
+  if (srv.id === 'PGM_WORSHIP_RES') {
+    openWorshipReserveForm();
+    return;
+  }
+  if (srv.id === 'PGM_ACCOUNT_REQ') {
+    openIdPasswordModal();
+    return;
+  }
+  if (srv.url && srv.url.startsWith('http')) {
+    window.open(srv.url, '_blank');
+    return;
+  }
 
   const modMap = {
     weeklyDuty: WeeklyDutyModule,
@@ -729,9 +846,9 @@ async function openServiceById(id) {
   };
   const modal = document.getElementById('service-modal');
   const body = document.getElementById('modal-body');
-  document.getElementById('modal-icon').textContent = srv.icon;
-  document.getElementById('modal-title').textContent = srv.title;
-  document.getElementById('modal-subtitle').textContent = srv.desc;
+  document.getElementById('modal-icon').textContent = srv.icon || '📌';
+  document.getElementById('modal-title').textContent = srv.name || srv.title;
+  document.getElementById('modal-subtitle').textContent = `${srv.category || ''} · ${srv.desc || ''}`;
 
   if (srv.moduleKey && modMap[srv.moduleKey]) {
     const Mod = modMap[srv.moduleKey];
@@ -861,11 +978,12 @@ async function triggerInstallShortcut() {
 
 function openRoleDemoModal() {
   const modal = document.getElementById('service-modal');
+  const currentCode = getCurrentRbacCode();
   document.getElementById('modal-icon').textContent = '🎭';
   document.getElementById('modal-title').textContent = '5단계 권한 시연';
-  document.getElementById('modal-subtitle').textContent = '10분 세션 유지';
-  document.getElementById('modal-body').innerHTML = `<div class="space-y-2">${ROLE_DEFS.map(r =>
-    `<button type="button" onclick="changePreviewRole('${r.key}'); closeServiceModal();" class="w-full text-left px-3.5 py-2.5 rounded-xl border text-xs font-bold ${state.currentRole === r.key ? 'bg-navy text-white dark:bg-gold dark:text-navyDark' : 'bg-skyBg dark:bg-slate-800'}">${r.label}</button>`
+  document.getElementById('modal-subtitle').textContent = '10분 세션 유지 (GUEST ~ ADMIN)';
+  document.getElementById('modal-body').innerHTML = `<div class="space-y-2">${['GUEST', 'MEMBER', 'LEADER', 'STAFF', 'ADMIN'].map(code =>
+    `<button type="button" onclick="changePreviewRole('${code}'); closeServiceModal();" class="w-full text-left px-3.5 py-2.5 rounded-xl border text-xs font-bold ${currentCode === code ? 'bg-navy text-white dark:bg-gold dark:text-navyDark' : 'bg-skyBg dark:bg-slate-800'}">Lv.${RBAC_RANK[code]} ${RBAC_LABEL_KO[code]} (${code})</button>`
   ).join('')}</div>`;
   modal.classList.remove('hidden');
 }
@@ -873,7 +991,7 @@ function openRoleDemoModal() {
 function syncSessionUI() {
   const box = document.getElementById('session-timer-box');
   const btn = document.getElementById('auth-btn');
-  const lv = ROLE_LEVEL[state.currentRole] || 1;
+  const lv = RBAC_RANK[getCurrentRbacCode()] || 1;
   if (lv >= 2) {
     box?.classList.remove('hidden'); box?.classList.add('flex');
     if (btn) btn.textContent = '로그아웃';
@@ -887,8 +1005,12 @@ function syncSessionUI() {
 
 function performLogout(expired = false) {
   localStorage.removeItem(SESSION_KEY);
-  state.currentIdToken = ''; state.currentUserProfile = null; state.currentRole = '외부인';
-  syncSessionUI(); renderPersonalizedCard(); renderAllBusinessMenu();
+  state.currentIdToken = '';
+  state.currentUserProfile = null;
+  state.currentRole = 'GUEST';
+  syncSessionUI();
+  renderPersonalizedCard();
+  if (state.currentTab === 'all') renderAllBusinessMenu();
   if (state.currentTab === 'my') renderMyTab();
   showToast(expired ? '⏱ 세션이 만료되어 로그아웃되었습니다.' : '로그아웃되었습니다.');
 }
@@ -898,15 +1020,17 @@ function handleExtendSession() {
 }
 
 function changePreviewRole(raw) {
-  const role = normalizeRoleName(raw);
-  state.currentRole = role;
-  saveSession(role, state.currentUserProfile, state.currentIdToken);
-  syncSessionUI(); renderPersonalizedCard(); renderAllBusinessMenu();
+  const code = toRbacCode(raw);
+  state.currentRole = code;
+  saveSession(code, state.currentUserProfile, state.currentIdToken);
+  syncSessionUI();
+  renderPersonalizedCard();
+  if (state.currentTab === 'all') renderAllBusinessMenu();
   if (state.currentTab === 'my') renderMyTab();
 }
 
 function handleAuthClick() {
-  if ((ROLE_LEVEL[state.currentRole] || 1) >= 2 || state.currentIdToken) { performLogout(false); return; }
+  if ((RBAC_RANK[getCurrentRbacCode()] || 1) >= 2 || state.currentIdToken) { performLogout(false); return; }
   if (CONFIG.GOOGLE_CLIENT_ID && window.google?.accounts?.id) {
     window.google.accounts.id.initialize({
       client_id: CONFIG.GOOGLE_CLIENT_ID,
@@ -916,16 +1040,18 @@ function handleAuthClick() {
         if (res && res.ok && res.user) {
           state.currentUserProfile = res.user;
           await loadSmallGroupMaster();
-          const role = normalizeRoleName(res.user.role || '외부인');
-          state.currentRole = role;
-          saveSession(role, res.user, state.currentIdToken);
-          syncSessionUI(); renderPersonalizedCard(); renderAllBusinessMenu();
-          showToast(`✅ ${res.user.name}님 환영합니다 (${role})`);
+          const code = toRbacCode(res.user.role || 'GUEST');
+          state.currentRole = code;
+          saveSession(code, res.user, state.currentIdToken);
+          syncSessionUI();
+          renderPersonalizedCard();
+          if (state.currentTab === 'all') renderAllBusinessMenu();
+          showToast(`✅ ${res.user.name}님 환영합니다 (${RBAC_LABEL_KO[code]})`);
         } else { performLogout(false); alert((res && res.error) || '로그인 실패'); }
       }
     });
     window.google.accounts.id.prompt();
-  } else { changePreviewRole('성도'); }
+  } else { changePreviewRole('MEMBER'); }
 }
 
 async function handleAttendanceSubmit(e) {
@@ -950,28 +1076,32 @@ async function handleAttendanceSubmit(e) {
   else alert('오류: ' + ((res && res.error) || '권한 확인 필요'));
 }
 
+async function loadProgramMasterFromApi() {
+  if (!CONFIG.APPS_SCRIPT_URL) return;
+  try {
+    const res = await callApi('getPortalPrograms');
+    if (res && res.ok && Array.isArray(res.data) && res.data.length) {
+      activeProgramList = res.data.map((row, idx) => normalizeProgramRow(row, idx));
+      if (state.currentTab === 'all') renderAllBusinessMenu();
+      if (state.currentTab === 'my') renderMyTab();
+    }
+  } catch (e) {
+    // API 미연결 시 V2_PROGRAMS_FALLBACK 유지
+  }
+}
+
 async function loadHub() {
   const dot = document.getElementById('api-status-dot');
-  const cached = readCachedHub();
-
-  if (cached) {
-    state.hubCache = cached;
-    smoothVerticalSlider.setItems(cached.galleries);
-  }
-
   const r = await fetchPublicHubData();
   state.hubCache = r.data;
-  if (r.status === 'live') {
-    writeCachedHub(r.data);
-  }
-
   if (dot) {
-    dot.innerHTML = r.status === 'live' ? '🟢 실시간 연동됨' : '🟡 기본 허브 모드';
+    dot.innerHTML = r.status === 'live' ? '🟢 실시간 연동됨' : '🟡 연동 준비중';
     dot.className = r.status === 'live'
       ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 whitespace-nowrap'
       : 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 whitespace-nowrap';
   }
   smoothVerticalSlider.setItems(state.hubCache.galleries);
+  await loadProgramMasterFromApi();
 }
 
 function updateCountdown() {
@@ -1002,8 +1132,6 @@ function bindVerticalSwipe() {
 Object.assign(window, {
   toggleTheme,
   switchBottomTab,
-  toggleAllMenuExpanded,
-  resetToHomeView,
   toggleQuickFavorite,
   toggleAlbumBgm,
   openWorshipReserveForm,
@@ -1030,21 +1158,20 @@ Object.assign(window, {
 
 function init() {
   initTheme();
-  allMenuExpanded = false;
-  applyAllTabMode();
   smoothVerticalSlider.renderImmediate();
-  smoothVerticalSlider.preloadNextItem();
   smoothVerticalSlider.startLoop();
   bindVerticalSwipe();
   const saved = loadSession();
   if (saved) {
     state.currentIdToken = saved.idToken || '';
     state.currentUserProfile = saved.profile || null;
-    state.currentRole = normalizeRoleName(saved.role || '외부인');
+    state.currentRole = toRbacCode(saved.role || 'GUEST');
+  } else {
+    state.currentRole = 'GUEST';
   }
   syncSessionUI();
   renderPersonalizedCard();
-  renderAllBusinessMenu();
+  if (state.currentTab === 'all') renderAllBusinessMenu();
   updateCountdown();
   setInterval(updateCountdown, 1000);
   loadHub();
