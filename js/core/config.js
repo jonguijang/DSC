@@ -14,7 +14,7 @@ export const ROLE_DEFS = [
   { level: 5, key: '관리자', code: 'ADMIN',  label: '5. 관리자 (ADMIN / 목회자·행정)' }
 ];
 
-// Users_Master 영문 권한등급(ADMIN, STAFF, LEADER, MEMBER, GUEST) 및 기존 한글 값 통합 매핑
+// Users_Master의 영문 권한등급(GUEST, MEMBER, LEADER, STAFF, ADMIN) 및 기존 한글 값('다산교회' 등) 호환
 export const ROLE_LEVEL = {
   '외부인': 1,
   'GUEST': 1,
