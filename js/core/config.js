@@ -7,27 +7,48 @@ const PROD_API_URL = 'https://script.google.com/macros/s/AKfycbyeYkLPvjdToxRf8TU
 const DEV_API_URL = PROD_API_URL;
 
 export const ROLE_DEFS = [
-  { level: 1, key: '외부인', label: '1. 외부인 (비로그인)' },
-  { level: 2, key: '성도', label: '2. 성도 (일반)' },
-  { level: 3, key: '제직', label: '3. 제직 (집사/담당)' },
-  { level: 4, key: '직원', label: '4. 직원 (장로/부서장)' },
-  { level: 5, key: '관리자', label: '5. 관리자 (목회자/행정)' }
+  { level: 1, key: '외부인', code: 'GUEST',  label: '1. 외부인 (GUEST / 비로그인)' },
+  { level: 2, key: '성도',   code: 'MEMBER', label: '2. 성도 (MEMBER / 일반)' },
+  { level: 3, key: '제직',   code: 'LEADER', label: '3. 제직 (LEADER / 집사·반장)' },
+  { level: 4, key: '직원',   code: 'STAFF',  label: '4. 직원 (STAFF / 장로·부서장)' },
+  { level: 5, key: '관리자', code: 'ADMIN',  label: '5. 관리자 (ADMIN / 목회자·행정)' }
 ];
 
-// 기존 Users_Master의 '다산교회' 값도 Lv.2(성도)로 안전 호환
+// Users_Master 영문 권한등급(ADMIN, STAFF, LEADER, MEMBER, GUEST) 및 기존 한글 값 통합 매핑
 export const ROLE_LEVEL = {
   '외부인': 1,
+  'GUEST': 1,
   '성도': 2,
   '다산교회': 2,
+  'MEMBER': 2,
   '제직': 3,
+  'LEADER': 3,
   '직원': 4,
-  '관리자': 5
+  'STAFF': 4,
+  '관리자': 5,
+  'ADMIN': 5
+};
+
+const ROLE_ALIAS_MAP = {
+  'GUEST': '외부인',
+  '외부인': '외부인',
+  'MEMBER': '성도',
+  '성도': '성도',
+  '다산교회': '성도',
+  'LEADER': '제직',
+  '제직': '제직',
+  'STAFF': '직원',
+  '직원': '직원',
+  'ADMIN': '관리자',
+  '관리자': '관리자'
 };
 
 export function normalizeRoleName(rawRole) {
-  const val = String(rawRole || '외부인').trim();
-  if (val === '다산교회') return '성도';
-  if (ROLE_LEVEL[val]) return val;
+  const val = String(rawRole || '').trim();
+  if (!val) return '외부인';
+  if (ROLE_ALIAS_MAP[val]) return ROLE_ALIAS_MAP[val];
+  const upper = val.toUpperCase();
+  if (ROLE_ALIAS_MAP[upper]) return ROLE_ALIAS_MAP[upper];
   return '외부인';
 }
 
@@ -106,3 +127,4 @@ export const SERVICES = [
   { id: 'PGM_SYS_AUTH', cat: '행정·시스템', priority: 'P1', target: '26-12', active: true,  minRole: 5, icon: '🛡️', title: '프로그램 권한관리', desc: '프로그램별 5단계 권한·사용여부 제어', sheet: 'Portal_Menus', moduleKey: 'programAuth' },
   { id: 'PGM_SYS_USER', cat: '행정·시스템', priority: 'P1', target: '26-12', active: true,  minRole: 5, icon: '⚙️', title: '회원·등급·소속반 관리', desc: '회원 승인 및 5단계 권한 부여', sheet: 'Users_Master' }
 ];
+```[cite: 27]
