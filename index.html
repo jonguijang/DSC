@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a252f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="다산교회" />
+  <title>다산교회 | dsc.or.kr</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a252f'/%3E%3Ctext x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' fill='%23d4af37' font-size='24' font-family='sans-serif' font-weight='bold'%3E%EB%8B%A4%EC%82%B0%3C/text%3E%3C/svg%3E" />
+  <link rel="manifest" href="./manifest.json" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            navy: '#2c3e50',
+            navyDark: '#1a252f',
+            gold: '#d4af37',
+            goldLight: '#f6ecc9',
+            skyBg: '#f3f6f9'
+          },
+          fontFamily: {
+            sans: ['"Noto Sans KR"', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    .gallery-layer {
+      will-change: transform;
+    }
+  </style>
+</head>
+<body class="min-h-dvh flex flex-col bg-skyBg text-slate-800 dark:bg-slate-950 dark:text-slate-100">
+
+<!-- 1. 상단 유틸 바 -->
+<div class="bg-navyDark dark:bg-black text-white text-[10px] sm:text-[11px] py-1.5 px-2 sm:px-3 border-b border-white/10 shrink-0">
+  <div class="max-w-3xl mx-auto flex flex-wrap items-center justify-between gap-1">
+    <div class="flex items-center gap-1 min-w-0">
+      <span id="api-status-dot" class="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 whitespace-nowrap">
+        🟢 연동됨
+      </span>
+      <button type="button" onclick="openIdPasswordModal()"
+        class="px-1.5 sm:px-2 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-goldLight font-semibold transition whitespace-nowrap">
+        🔑 아이디신청/비번초기화
+      </button>
+    </div>
+    <div class="flex items-center gap-1 shrink-0">
+      <button type="button" id="dsc-account-add-btn" onclick="openDscAccountGuideModal()"
+        class="px-1.5 sm:px-2 py-0.5 rounded-full bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 font-semibold transition whitespace-nowrap">
+        👤 DSC
+      </button>
+      <button type="button" id="pwa-install-btn" onclick="triggerInstallShortcut()"
+        class="px-1.5 sm:px-2 py-0.5 rounded-full bg-gold/20 hover:bg-gold/30 text-gold font-semibold transition whitespace-nowrap">
+        📲 바로가기
+      </button>
+    </div>
+  </div>
+</div>
+
+  <!-- 2. 메인 헤더 (황금색 '다산교회' 단일 표기) -->
+  <header class="bg-white/95 dark:bg-slate-900/95 backdrop-blur sticky top-0 z-40 border-b border-gray-200 dark:border-slate-800 shrink-0">
+    <div class="max-w-3xl mx-auto px-3.5 py-2 flex items-center justify-between gap-2">
+      <a href="#" onclick="resetToHomeView(); return false;" class="flex items-center shrink-0">
+        <span class="text-lg font-extrabold text-gold tracking-tight drop-shadow-sm">다산교회</span>
+      </a>
+
+      <div class="flex items-center gap-1.5">
+        <div id="session-timer-box" class="hidden items-center gap-1 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-lg px-2 py-1 text-[11px]">
+          <span class="text-amber-700 dark:text-amber-300 font-mono font-bold">⏱ <span id="session-countdown">10:00</span></span>
+          <button type="button" onclick="handleExtendSession()"
+            class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-1.5 py-0.5 rounded text-[10px] transition">
+            연장
+          </button>
+        </div>
+
+        <button type="button" onclick="openRoleDemoModal()" title="5단계 권한 시연"
+          class="w-8 h-8 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-slate-700 transition">
+          🎭
+        </button>
+
+        <button type="button" id="theme-toggle-btn" onclick="toggleTheme()" aria-label="화면 테마 전환"
+          class="w-8 h-8 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center justify-center text-sm hover:bg-gray-100 dark:hover:bg-slate-700 transition">
+          <span id="theme-icon">🌙</span>
+        </button>
+
+        <button type="button" id="auth-btn" onclick="handleAuthClick()"
+          class="bg-navy hover:bg-navyDark dark:bg-gold dark:hover:bg-yellow-500 text-white dark:text-navyDark text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm whitespace-nowrap">
+          로그인
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 3. 메인 뷰포트 -->
+  <main class="flex-1 max-w-3xl w-full mx-auto px-3.5 pt-2.5 pb-20 flex flex-col gap-2.5">
+
+    <!-- [전체메뉴] 뷰: 기본 화면(알림 + 나의 대시보드 + 상하 슬라이드 앨범) / 토글 시 업무별 전체 메뉴 -->
+    <section id="tab-view-all" class="flex-1 flex flex-col gap-2.5">
+
+      <!-- 다음 예배 한 줄 알림 -->
+      <div class="flex items-center justify-between bg-white dark:bg-slate-900 rounded-xl px-3 py-1.5 shadow-sm border border-gray-200/80 dark:border-slate-800 text-xs shrink-0">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="text-gold">🔔</span>
+          <span id="next-worship-label" class="font-semibold text-gray-700 dark:text-slate-200 truncate">다음 예배까지</span>
+          <span id="worship-countdown" class="font-mono font-bold text-navy dark:text-gold">00:00:00</span>
+        </div>
+        <a href="https://www.youtube.com/@sda5239" target="_blank"
+          class="text-[11px] font-bold text-red-600 dark:text-red-400 hover:underline shrink-0">
+          ▶ 온라인예배
+        </a>
+      </div>
+
+      <!-- 1) 나의 대시보드 -->
+      <div id="personalized-card" class="shrink-0"></div>
+
+      <!-- 2) 기본 화면: 활동사진 앨범 + BGM -->
+      <div id="home-gallery-panel" class="flex-1 min-h-[300px] sm:min-h-[360px] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-gray-200/80 dark:border-slate-800 flex flex-col">
+        <div id="gallery-slider-stage" class="relative flex-1 min-h-[240px] bg-navyDark overflow-hidden select-none">
+          <img id="hero-gallery-img-a" src="" alt="다산교회 활동사진"
+            class="gallery-layer w-full h-full object-cover object-center absolute inset-0" />
+          <img id="hero-gallery-img-b" src="" alt=""
+            class="gallery-layer w-full h-full object-cover object-center absolute inset-0" style="transform: translateY(100%);" />
+
+          <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent p-3.5 pt-10 flex items-end justify-between gap-2 pointer-events-none z-10">
+            <div class="min-w-0">
+              <div id="hero-gallery-caption" class="text-white font-bold text-sm truncate">다산교회 활동사진</div>
+              <div id="hero-gallery-sub" class="text-white/80 text-[11px] truncate">함께 예배하고 섬기는 다산교회 공동체</div>
+            </div>
+            <span id="hero-gallery-counter" class="text-[11px] font-mono bg-black/55 text-white px-2 py-0.5 rounded-full shrink-0">1 / 3</span>
+          </div>
+
+          <!-- 상 / 하 수동 이동 버튼 -->
+          <div class="absolute right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-20">
+            <button type="button" onclick="stepGallerySlide(-1)" aria-label="위로 이어지게 이동"
+              class="w-8 h-8 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center text-xs transition">
+              ▲
+            </button>
+            <button type="button" onclick="stepGallerySlide(1)" aria-label="아래로 이어지게 이동"
+              class="w-8 h-8 rounded-full bg-black/45 hover:bg-black/70 text-white flex items-center justify-center text-xs transition">
+              ▼
+            </button>
+          </div>
+        </div>
+
+        <!-- 상하 흐름 제어 + 배경음악(BGM) + 전체메뉴 토글 -->
+        <div class="px-3 py-2 flex items-center justify-between gap-2 bg-gray-50/90 dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 shrink-0 flex-wrap">
+          <div class="inline-flex items-center gap-1 bg-white dark:bg-slate-800 p-0.5 rounded-lg border border-gray-200 dark:border-slate-700">
+            <button type="button" id="btn-dir-rev" onclick="setGalleryDirection(-1)"
+              class="px-2 py-1 rounded-md text-[11px] font-bold bg-navy text-white dark:bg-gold dark:text-navyDark transition">
+              ▲ 위로
+            </button>
+            <button type="button" id="btn-dir-pause" onclick="setGalleryDirection(0)"
+              class="px-2 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition">
+              ⏸ 정지
+            </button>
+            <button type="button" id="btn-dir-fwd" onclick="setGalleryDirection(1)"
+              class="px-2 py-1 rounded-md text-[11px] font-bold text-gray-600 dark:text-slate-300 transition">
+              ▼ 아래로
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2.5">
+            <button type="button" id="bgm-toggle-btn" onclick="toggleAlbumBgm()"
+              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100/80 dark:bg-amber-900/30 text-amber-900 dark:text-gold border border-amber-300/60 dark:border-gold/30 transition">
+              <span id="bgm-icon">♪</span>
+              <span id="bgm-label">BGM 재생</span>
+            </button>
+            <button type="button" onclick="toggleAllMenuExpanded()"
+              class="text-[11px] font-bold text-navy dark:text-gold hover:underline">
+              전체메뉴 열기 →
+            </button>
+          </div>
+        </div>
+
+        <!-- 앨범 배경음악 플레이어 슬롯 (https://www.youtube.com/watch?v=aWzWjHUfpvU) -->
+        <div id="album-bgm-player" class="hidden px-3 py-1.5 bg-navyDark text-white text-[11px] flex items-center justify-between gap-2 border-t border-white/10">
+          <span class="truncate text-goldLight">♪ 앨범 배경음악 연결됨 (aWzWjHUfpvU)</span>
+          <div id="bgm-iframe-wrap" class="w-1 h-1 overflow-hidden opacity-0 pointer-events-none"></div>
+          <a href="https://www.youtube.com/watch?v=aWzWjHUfpvU" target="_blank" rel="noopener noreferrer"
+            class="underline text-gold shrink-0">유튜브 열기</a>
+        </div>
+      </div>
+
+      <!-- 3) 전체메뉴 클릭 시에만 펼쳐지는 업무별 전체 메뉴 -->
+      <div id="all-business-menu" class="hidden bg-white dark:bg-slate-900 rounded-2xl p-3.5 shadow-sm border border-gray-200/80 dark:border-slate-800 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h2 class="font-bold text-sm text-navy dark:text-white">📋 업무별 전체 메뉴</h2>
+            <p class="text-[11px] text-gray-500 dark:text-slate-400">하단 [전체메뉴]를 한 번 더 누르면 기본 화면으로 돌아갑니다</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="all-menu-role-badge" class="text-[11px] font-bold text-amber-700 dark:text-gold">Lv.1 외부인</span>
+            <button type="button" onclick="resetToHomeView()"
+              class="px-2.5 py-1 rounded-lg bg-skyBg dark:bg-slate-800 text-[11px] font-bold text-navy dark:text-white border border-gray-200 dark:border-slate-700">
+              기본화면
+            </button>
+          </div>
+        </div>
+        <div id="all-business-menu-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+      </div>
+
+    </section>
+
+    <!-- [예배출석및예약] 뷰 -->
+    <section id="tab-view-worship" class="hidden space-y-3"></section>
+
+    <!-- [즐겨찾기메뉴] 뷰 -->
+    <section id="tab-view-my" class="hidden space-y-3"></section>
+
+  </main>
+
+  <!-- 4. 하단 고정 네비게이션: [전체메뉴] [예배출석및예약] [즐겨찾기메뉴] -->
+  <nav class="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-t border-gray-200 dark:border-slate-800 safe-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+    <div class="max-w-3xl mx-auto grid grid-cols-3 py-1.5">
+      <button type="button" data-tab="all" onclick="switchBottomTab('all')"
+        class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-navy dark:text-gold font-bold transition">
+        <span class="text-base leading-none">☰</span>
+        <span class="text-[11px] tracking-tight">전체메뉴</span>
+      </button>
+      <button type="button" data-tab="worship" onclick="switchBottomTab('worship')"
+        class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition">
+        <span class="text-base leading-none">📅</span>
+        <span class="text-[11px] tracking-tight">예배출석및예약</span>
+      </button>
+      <button type="button" data-tab="my" onclick="switchBottomTab('my')"
+        class="bottom-nav-btn flex flex-col items-center justify-center gap-0.5 text-gray-500 dark:text-slate-400 font-medium transition">
+        <span class="text-base leading-none">⭐</span>
+        <span class="text-[11px] tracking-tight">즐겨찾기메뉴</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 5. 공통 업무 모달 -->
+  <div id="service-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-[1px] flex items-end sm:items-center justify-center sm:p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl max-w-2xl w-full max-h-[88vh] overflow-y-auto shadow-2xl border border-gray-200 dark:border-slate-700">
+      <div class="sticky top-0 z-10 bg-white dark:bg-slate-900 px-4 py-3.5 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <span id="modal-icon" class="text-xl shrink-0">📌</span>
+          <div class="min-w-0">
+            <h3 id="modal-title" class="font-bold text-sm sm:text-base text-navy dark:text-white truncate">업무 제목</h3>
+            <p id="modal-subtitle" class="text-[11px] text-gray-500 dark:text-slate-400 truncate">연동 정보</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeServiceModal()" class="text-gray-400 hover:text-gray-700 dark:hover:text-white text-xl font-bold px-2">✕</button>
+      </div>
+      <div id="modal-body" class="p-4 space-y-4 text-xs sm:text-sm"></div>
+    </div>
+  </div>
+
+  <!-- 6. 토스트 알림 -->
+  <div id="portal-toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-[60] hidden bg-navyDark text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg border border-white/10"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
