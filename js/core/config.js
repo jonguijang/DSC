@@ -127,4 +127,3 @@ export const SERVICES = [
   { id: 'PGM_SYS_AUTH', cat: '행정·시스템', priority: 'P1', target: '26-12', active: true,  minRole: 5, icon: '🛡️', title: '프로그램 권한관리', desc: '프로그램별 5단계 권한·사용여부 제어', sheet: 'Portal_Menus', moduleKey: 'programAuth' },
   { id: 'PGM_SYS_USER', cat: '행정·시스템', priority: 'P1', target: '26-12', active: true,  minRole: 5, icon: '⚙️', title: '회원·등급·소속반 관리', desc: '회원 승인 및 5단계 권한 부여', sheet: 'Users_Master' }
 ];
-```[cite: 27]
