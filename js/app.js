@@ -36,6 +36,7 @@ const ALBUM_BGM_VIDEO_ID = 'aWzWjHUfpvU';
 const SESSION_MS = 10 * 60 * 1000;
 let sessionTimerHandle = null;
 let allMenuExpanded = false; // 기본값: false (기본 화면에는 업무별 전체 메뉴 숨김)
+let gisInitialized = false;
 
 function saveSession(role, profile = null, idToken = '') {
   if (!role || role === '외부인') { localStorage.removeItem(SESSION_KEY); return; }
@@ -447,9 +448,6 @@ function resetToHomeView() {
   switchBottomTab('all');
 }
 
-// 3단 고정 네비게이션 전환:
-// - [전체메뉴] 클릭: 기본 화면에서는 전체 메뉴를 열고, 이미 열린 상태에서는 다시 기본 화면으로 복귀
-// - [예배출석및예약] / [즐겨찾기메뉴] 클릭: 해당 탭으로 이동하며 전체 메뉴 펼침 상태 초기화
 function switchBottomTab(tab) {
   if (tab === 'all') {
     if (state.currentTab === 'all') {
@@ -905,27 +903,100 @@ function changePreviewRole(raw) {
   if (state.currentTab === 'my') renderMyTab();
 }
 
+async function completeGoogleCredentialLogin(credential) {
+  state.currentIdToken = credential || '';
+  const res = await callApi('getSessionProfile');
+  const profile = (res && (res.user || res.data)) || null;
+  if (res && res.ok && profile) {
+    state.currentUserProfile = profile;
+    await loadSmallGroupMaster();
+    const role = normalizeRoleName(profile.role || profile.roleCode || '외부인');
+    state.currentRole = role;
+    saveSession(role, profile, state.currentIdToken);
+    syncSessionUI();
+    renderPersonalizedCard();
+    renderAllBusinessMenu();
+    if (state.currentTab === 'my') renderMyTab();
+    closeServiceModal();
+    showToast(`✅ ${profile.name || '성도'}님 환영합니다 (${role})`);
+  } else {
+    performLogout(false);
+    alert((res && res.error) || '로그인에 실패했습니다.');
+  }
+}
+
+function ensureGisInitialized() {
+  if (gisInitialized || !CONFIG.GOOGLE_CLIENT_ID || !window.google?.accounts?.id) return gisInitialized;
+  window.google.accounts.id.initialize({
+    client_id: CONFIG.GOOGLE_CLIENT_ID,
+    use_fedcm_for_prompt: false,
+    callback: async resp => {
+      if (resp && resp.credential) {
+        await completeGoogleCredentialLogin(resp.credential);
+      }
+    }
+  });
+  gisInitialized = true;
+  return true;
+}
+
+function openGoogleButtonFallbackModal() {
+  const modal = document.getElementById('service-modal');
+  document.getElementById('modal-icon').textContent = '🔐';
+  document.getElementById('modal-title').textContent = 'Google 계정 로그인';
+  document.getElementById('modal-subtitle').textContent = '@dsc.or.kr 계정으로 로그인해 주세요';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="space-y-4 py-2 text-center">
+      <p class="text-xs text-gray-600 dark:text-slate-300">
+        브라우저 프롬프트가 표시되지 않았거나 계정이 없는 상태입니다. 아래 버튼을 눌러 Google 로그인을 진행해 주세요.
+      </p>
+      <div id="gis-fallback-btn-wrap" class="flex justify-center min-h-[44px]"></div>
+      <div class="pt-2 border-t border-gray-100 dark:border-slate-800">
+        <button type="button" onclick="openDscAccountGuideModal()" class="text-[11px] text-sky-600 dark:text-sky-400 underline">
+          @dsc.or.kr 계정 추가 안내 보기
+        </button>
+      </div>
+    </div>`;
+  modal.classList.remove('hidden');
+
+  if (ensureGisInitialized() && window.google?.accounts?.id?.renderButton) {
+    const wrap = document.getElementById('gis-fallback-btn-wrap');
+    if (wrap) {
+      wrap.innerHTML = '';
+      window.google.accounts.id.renderButton(wrap, {
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'pill',
+        width: 260
+      });
+    }
+  }
+}
+
 function handleAuthClick() {
-  if ((ROLE_LEVEL[state.currentRole] || 1) >= 2 || state.currentIdToken) { performLogout(false); return; }
-  if (CONFIG.GOOGLE_CLIENT_ID && window.google?.accounts?.id) {
-    window.google.accounts.id.initialize({
-      client_id: CONFIG.GOOGLE_CLIENT_ID,
-      callback: async resp => {
-        state.currentIdToken = resp.credential;
-        const res = await callApi('getSessionProfile');
-        if (res && res.ok && res.user) {
-          state.currentUserProfile = res.user;
-          await loadSmallGroupMaster();
-          const role = normalizeRoleName(res.user.role || '외부인');
-          state.currentRole = role;
-          saveSession(role, res.user, state.currentIdToken);
-          syncSessionUI(); renderPersonalizedCard(); renderAllBusinessMenu();
-          showToast(`✅ ${res.user.name}님 환영합니다 (${role})`);
-        } else { performLogout(false); alert((res && res.error) || '로그인 실패'); }
+  if ((ROLE_LEVEL[state.currentRole] || 1) >= 2 || state.currentIdToken) {
+    performLogout(false);
+    return;
+  }
+  if (!CONFIG.GOOGLE_CLIENT_ID) {
+    changePreviewRole('성도');
+    return;
+  }
+  if (!window.google?.accounts?.id) {
+    alert('Google 로그인 스크립트를 아직 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
+    return;
+  }
+  ensureGisInitialized();
+  try {
+    window.google.accounts.id.prompt(notification => {
+      if (notification && (notification.isNotDisplayed() || notification.isSkippedMoment())) {
+        openGoogleButtonFallbackModal();
       }
     });
-    window.google.accounts.id.prompt();
-  } else { changePreviewRole('성도'); }
+  } catch (err) {
+    openGoogleButtonFallbackModal();
+  }
 }
 
 async function handleAttendanceSubmit(e) {
