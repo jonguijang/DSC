@@ -27,6 +27,7 @@ import { DarakbangModule } from './modules/DarakbangModule.js';
 import { OfferingsModule } from './modules/OfferingsModule.js';
 import { BookRequestModule } from './modules/BookRequestModule.js';
 import { AttendanceModule, validateAttendanceDateAndService } from './modules/AttendanceModule.js';
+import { TalentModule } from './modules/TalentModule.js';
 
 const SESSION_KEY = 'dsc_portal_session_v4';
 const QUICK_FAV_KEY = 'dsc_quick_favorites_v1';
@@ -718,13 +719,14 @@ async function openServiceById(id) {
   if (userLv < srv.minRole) { alert(`[${getRoleNameByLevel(srv.minRole)}] 등급(Lv.${srv.minRole}) 이상 이용 가능합니다.`); return; }
   if (srv.url && srv.url.startsWith('http')) { window.open(srv.url, '_blank'); return; }
 
-  const modMap = {
-    weeklyDuty: WeeklyDutyModule,
-    darakbang: DarakbangModule,
-    offerings: OfferingsModule,
-    bookRequest: BookRequestModule,
-    attendance: AttendanceModule
-  };
+const modMap = {
+  weeklyDuty: WeeklyDutyModule,
+  darakbang: DarakbangModule,
+  offerings: OfferingsModule,
+  bookRequest: BookRequestModule,
+  attendance: AttendanceModule,
+  talent: TalentModule
+};
   const modal = document.getElementById('service-modal');
   const body = document.getElementById('modal-body');
   document.getElementById('modal-icon').textContent = srv.icon;
